@@ -15,10 +15,16 @@ env:
   VTK_VERSION: '9.5.2'
 
 jobs:
-  # ── Windows: native UCRT64 build via Rtools ────────────────────────────────
+  # ── Windows: native UCRT64 build via Rtools bash (MSYS2) ──────────────────
   build-windows:
     name: Windows (ucrt-x64)
     runs-on: windows-latest
+    env:
+      MSYSTEM: UCRT64
+      CHERE_INVOKING: '1'
+    defaults:
+      run:
+        shell: C:\rtools45\usr\bin\bash.exe --login -eo pipefail {0}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,71 +33,58 @@ jobs:
         with:
           r-version: 'release'
           rtools-version: '45'
-
-      - name: Add Rtools to PATH
-        shell: pwsh
-        run: |
-          $rtools = "C:\rtools45"
-          echo "$rtools\ucrt64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "$rtools\usr\bin"    | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        # r-lib/actions uses pwsh internally — that's fine; our run steps use bash
 
       - name: Download VTK source
-        shell: pwsh
         run: |
-          $ver   = "${{ env.VTK_VERSION }}"
-          $minor = ($ver -split '\.')[0..1] -join '.'
-          $url   = "https://www.vtk.org/files/release/${minor}/VTK-${ver}.tar.gz"
-          Write-Host "Downloading $url"
-          curl.exe -fsSL $url -o vtk-src.tar.gz
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          URL="https://www.vtk.org/files/release/${MINOR}/VTK-${VER}.tar.gz"
+          echo "Downloading $URL"
+          curl -fsSL "$URL" -o vtk-src.tar.gz
           tar -xzf vtk-src.tar.gz
 
       - name: Configure VTK
-        shell: pwsh
         run: |
-          $ver = "${{ env.VTK_VERSION }}"
-          New-Item -ItemType Directory -Force build | Out-Null
-          Push-Location build
-          cmake -G "MinGW Makefiles" `
-            -DCMAKE_INSTALL_PREFIX="$PWD\..\install" `
-            -DCMAKE_C_COMPILER="C:\rtools45\ucrt64\bin\gcc.exe" `
-            -DCMAKE_CXX_COMPILER="C:\rtools45\ucrt64\bin\g++.exe" `
-            -DCMAKE_RC_COMPILER="C:\rtools45\ucrt64\bin\windres.exe" `
-            -DBUILD_SHARED_LIBS=OFF `
-            -DVTK_BUILD_ALL_MODULES=OFF `
-            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES `
-            -DVTK_MODULE_ENABLE_VTK_IOXML=YES `
-            -DVTK_MODULE_ENABLE_VTK_IOCore=YES `
-            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES `
-            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES `
-            -DCMAKE_POSITION_INDEPENDENT_CODE=ON `
-            "..\VTK-${ver}"
-          Pop-Location
+          VER="${{ env.VTK_VERSION }}"
+          mkdir -p build
+          cd build
+          cmake -G "MinGW Makefiles" \
+            -DCMAKE_INSTALL_PREFIX="$(pwd)/../install" \
+            -DCMAKE_C_COMPILER=/ucrt64/bin/gcc \
+            -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++ \
+            -DCMAKE_RC_COMPILER=/ucrt64/bin/windres \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DVTK_BUILD_ALL_MODULES=OFF \
+            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOXML=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            ../VTK-${VER}
 
       - name: Build and install VTK
-        shell: pwsh
         run: |
-          Push-Location build
-          mingw32-make -j$([Environment]::ProcessorCount)
+          cd build
+          mingw32-make -j$(nproc)
           mingw32-make install
-          Pop-Location
 
       - name: Package archive
-        shell: pwsh
         run: |
-          $ver = "${{ env.VTK_VERSION }}"
-          $pkg = "vtk-${ver}-ucrt-x64"
-          $vtk_minor = ($ver -split '\.')[0..1] -join '.'
-          New-Item -ItemType Directory -Force "$pkg\include\vtk-${vtk_minor}" | Out-Null
-          New-Item -ItemType Directory -Force "$pkg\lib"                      | Out-Null
-          # Headers: copy contents into include/vtk-X.Y/
-          $src_inc = Get-ChildItem "install\include" -Directory | Where-Object { $_.Name -match '^vtk-' } | Select-Object -First 1
-          if ($src_inc) {
-            Copy-Item "$($src_inc.FullName)\*" "$pkg\include\vtk-${vtk_minor}\" -Recurse
-          }
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          PKG="vtk-${VER}-ucrt-x64"
+          mkdir -p "${PKG}/include/vtk-${MINOR}" "${PKG}/lib"
+          # Headers
+          SRC_INC=$(find install/include -maxdepth 1 -name "vtk-*" -type d | sort -V | tail -1)
+          if [ -n "${SRC_INC}" ]; then
+            cp -R "${SRC_INC}/"* "${PKG}/include/vtk-${MINOR}/"
+          fi
           # Static libraries
-          Copy-Item "install\lib\*.a" "$pkg\lib\"
-          Compress-Archive -Path $pkg -DestinationPath "${pkg}.zip"
-          Write-Host "Created ${pkg}.zip"
+          find install/lib -name "*.a" -exec cp {} "${PKG}/lib/" \;
+          7z a -tzip "${PKG}.zip" "${PKG}"
+          echo "Created ${PKG}.zip"
 
       - uses: actions/upload-artifact@v4
         with:

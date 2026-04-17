@@ -1,0 +1,25 @@
+Package: vtk
+Title: System Dependencies for the Visualization Toolkit (VTK)
+Version: 9.5.2
+Authors@R: c(
+    person(
+        given = "Aymeric",
+        family = "Stamm",
+        role = c("aut", "cre"),
+        email = "aymeric.stamm@cnrs.fr",
+        comment = c(ORCID = "0000-0002-8725-3654")
+    ))
+Description: Provides pre-compiled static VTK libraries and headers for
+    Windows; on macOS and Linux it locates a system-installed VTK. Downstream
+    packages can declare 'Imports: vtk' and obtain the correct compiler and
+    linker flags at install time via 'vtk::CppFlags()' and 'vtk::LdFlags()'.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+URL: https://github.com/astamm/vtk
+BugReports: https://github.com/astamm/vtk/issues
+SystemRequirements: VTK (>= 9.1.0) on macOS and Linux. On Windows, pre-built
+    static libraries are downloaded automatically from
+    <https://github.com/astamm/vtk/releases>.
+NeedsCompilation: no

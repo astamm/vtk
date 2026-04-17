@@ -1,0 +1,14 @@
+#!/bin/sh
+# configure.win -- Windows configuration for the vtk R package.
+# Calls tools/winlibs.R which downloads pre-built VTK static libraries and
+# writes inst/vtk.conf.  No elevated permissions are required; all files are
+# placed inside the package source tree.
+
+set -e
+
+echo "--- vtk: configuring for Windows ---"
+
+: "${R_HOME:=$(R RHOME)}"
+"${R_HOME}/bin/Rscript.exe" "tools/winlibs.R"
+
+echo "--- vtk: Windows configuration complete ---"

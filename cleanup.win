@@ -1,0 +1,6 @@
+#!/bin/sh
+# cleanup.win -- remove generated files on Windows
+
+if [ -f "inst/vtk.conf" ]; then
+  rm -f inst/vtk.conf
+fi

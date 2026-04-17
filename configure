@@ -1,0 +1,210 @@
+#!/bin/sh
+# configure -- macOS / Linux configuration for the vtk R package.
+# Detects a system-installed VTK (>= 9.1.0) via Homebrew (macOS) or
+# pkg-config, then writes inst/vtk.conf so that vtk::CppFlags() and
+# vtk::LdFlags() return the correct flags for downstream packages.
+
+set -e
+
+VTK_MIN_VERSION="9.1.0"
+VTK_MIN_SUFFIX="$(echo "${VTK_MIN_VERSION}" | sed 's/\([0-9]*\)\.\([0-9]*\)\..*/\1.\2/')"
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+## vtk_detect_from_prefix PREFIX
+## Sets vtk_include_dir and vtk_version_suffix; returns 0 on success.
+vtk_detect_from_prefix() {
+    _prefix="$1"
+    _min="$VTK_MIN_SUFFIX"
+
+    ## Versioned directory (vtk-X.Y)
+    _vdir="$(find "${_prefix}/include" -maxdepth 1 -name "vtk-*" -type d 2>/dev/null \
+        | sort -V | tail -1)"
+    if test -n "${_vdir}"; then
+        _sfx="$(basename "${_vdir}" | sed 's/^vtk-//')"
+        if printf '%s\n%s\n' "${_min}" "${_sfx}" | sort -V | head -1 \
+                | grep -qx "${_min}"; then
+            vtk_version_suffix="${_sfx}"
+            vtk_include_dir="${_vdir}"
+            return 0
+        fi
+        return 1
+    fi
+
+    ## Unversioned directory (vtk/)
+    if test -d "${_prefix}/include/vtk"; then
+        _hdr="${_prefix}/include/vtk/vtkVersionQuick.h"
+        if test -f "${_hdr}"; then
+            _major="$(grep '#define VTK_MAJOR_VERSION' "${_hdr}" | awk '{print $3}')"
+            _minor="$(grep '#define VTK_MINOR_VERSION' "${_hdr}" | awk '{print $3}')"
+            if test -n "${_major}" && test -n "${_minor}"; then
+                _det="${_major}.${_minor}"
+                if printf '%s\n%s\n' "${_min}" "${_det}" | sort -V | head -1 \
+                        | grep -qx "${_min}"; then
+                    vtk_version_suffix=""
+                    vtk_include_dir="${_prefix}/include/vtk"
+                    return 0
+                fi
+                return 1
+            fi
+        fi
+        echo "WARNING: Could not read VTK version from ${_hdr}; proceeding." >&2
+        vtk_version_suffix=""
+        vtk_include_dir="${_prefix}/include/vtk"
+        return 0
+    fi
+
+    return 1
+}
+
+## vtk_build_flags LIB_PREFIX [RPATH]
+## Populates vtk_cppflags and vtk_libs using vtk_version_suffix / vtk_include_dir.
+vtk_build_flags() {
+    _lib="$1"
+    _rpath="${2:-}"
+    _s=""
+    if test -n "${vtk_version_suffix}"; then
+        _s="-${vtk_version_suffix}"
+    fi
+    vtk_cppflags="-isystem${vtk_include_dir}"
+    vtk_libs="-L${_lib}/lib"
+    vtk_libs="${vtk_libs} -lvtkIOLegacy${_s}"
+    vtk_libs="${vtk_libs} -lvtkIOXML${_s}"
+    vtk_libs="${vtk_libs} -lvtkIOCore${_s}"
+    vtk_libs="${vtk_libs} -lvtkCommonCore${_s}"
+    vtk_libs="${vtk_libs} -lvtkCommonDataModel${_s}"
+    vtk_libs="${vtk_libs} -lvtksys${_s}"
+    if test -n "${_rpath}"; then
+        vtk_libs="${vtk_libs} -Wl,-rpath,${_rpath}"
+    fi
+}
+
+vtk_found="no"
+vtk_version_suffix=""
+vtk_include_dir=""
+vtk_cppflags=""
+vtk_libs=""
+vtk_version=""
+
+# ---------------------------------------------------------------------------
+# 0. User-supplied VTK_DIR (highest priority)
+# ---------------------------------------------------------------------------
+if test -n "${VTK_DIR}"; then
+    echo "Checking VTK_DIR=${VTK_DIR} ..."
+    if vtk_detect_from_prefix "${VTK_DIR}"; then
+        vtk_build_flags "${VTK_DIR}" "${VTK_DIR}/lib"
+        vtk_found="yes"
+        echo "  -> found VTK${vtk_version_suffix:+- }${vtk_version_suffix}"
+    else
+        echo "  -> VTK_DIR does not satisfy >= ${VTK_MIN_VERSION}; trying automatic detection."
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 1. macOS: Homebrew
+# ---------------------------------------------------------------------------
+os_type="$(uname -s)"
+if test "${vtk_found}" = "no" && test "${os_type}" = "Darwin"; then
+    if command -v brew > /dev/null 2>&1; then
+        if brew --prefix vtk > /dev/null 2>&1; then
+            _brew_pfx="$(brew --prefix vtk)"
+            echo "Checking Homebrew VTK at ${_brew_pfx} ..."
+            if vtk_detect_from_prefix "${_brew_pfx}"; then
+                vtk_build_flags "${_brew_pfx}"
+                vtk_found="yes"
+                echo "  -> found VTK${vtk_version_suffix:+- }${vtk_version_suffix}"
+            else
+                echo "  -> Homebrew VTK is too old (< ${VTK_MIN_VERSION})."
+            fi
+        fi
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 2. pkg-config
+# ---------------------------------------------------------------------------
+if test "${vtk_found}" = "no"; then
+    if command -v pkg-config > /dev/null 2>&1; then
+        vtk_pc=""
+        for _n in vtk vtk-9.5 vtk-9.4 vtk-9.3 vtk-9.2 vtk-9.1 vtk9 VTK; do
+            if pkg-config --exists "${_n}" 2>/dev/null; then
+                vtk_pc="${_n}"; break
+            fi
+        done
+        if test -n "${vtk_pc}"; then
+            echo "Checking pkg-config name '${vtk_pc}' ..."
+            if pkg-config --atleast-version="${VTK_MIN_VERSION}" "${vtk_pc}"; then
+                vtk_cppflags="$(pkg-config --cflags "${vtk_pc}" | sed 's/-I/-isystem/g')"
+                vtk_libs="$(pkg-config --libs "${vtk_pc}")"
+                vtk_version="$(pkg-config --modversion "${vtk_pc}")"
+                vtk_found="yes"
+                echo "  -> found VTK ${vtk_version} via pkg-config"
+            else
+                echo "  -> pkg-config VTK is too old (< ${VTK_MIN_VERSION})."
+            fi
+        fi
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 3. Linux: well-known system prefixes
+# ---------------------------------------------------------------------------
+if test "${vtk_found}" = "no" && test "${os_type}" = "Linux"; then
+    for _base in /usr /usr/local; do
+        if vtk_detect_from_prefix "${_base}"; then
+            vtk_build_flags "${_base}" "${_base}/lib"
+            vtk_found="yes"
+            echo "Found VTK at ${_base}"
+            break
+        fi
+    done
+fi
+
+# ---------------------------------------------------------------------------
+# Fail if nothing was found
+# ---------------------------------------------------------------------------
+if test "${vtk_found}" = "no"; then
+    echo ""
+    echo "ERROR: Cannot find VTK >= ${VTK_MIN_VERSION}." >&2
+    echo "" >&2
+    case "${os_type}" in
+        Darwin)
+            echo "  Install via Homebrew:  brew install vtk" >&2
+            echo "  Or set VTK_DIR to the installation prefix." >&2 ;;
+        Linux)
+            echo "  Debian/Ubuntu:  sudo apt-get install libvtk9-dev" >&2
+            echo "  Fedora:         sudo dnf install vtk-devel" >&2
+            echo "  Or set VTK_DIR to the installation prefix." >&2 ;;
+        *)
+            echo "  Please set VTK_DIR to the installation prefix." >&2 ;;
+    esac
+    echo "" >&2
+    exit 1
+fi
+
+## Determine version string if not already set (from pkg-config path).
+if test -z "${vtk_version}"; then
+    if test -n "${vtk_version_suffix}"; then
+        vtk_version="${vtk_version_suffix}.0"
+    else
+        vtk_version="unknown"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Write inst/vtk.conf
+# ---------------------------------------------------------------------------
+mkdir -p inst
+cat > inst/vtk.conf << EOF
+VTK_VERSION=${vtk_version}
+VTK_CPPFLAGS=${vtk_cppflags}
+VTK_LIBS=${vtk_libs}
+VTK_INCLUDE_DIR=${vtk_include_dir}
+EOF
+
+echo "Written inst/vtk.conf"
+echo "  VTK_VERSION=${vtk_version}"
+echo "  VTK_CPPFLAGS=${vtk_cppflags}"
+echo "  VTK_LIBS=${vtk_libs}"

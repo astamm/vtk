@@ -1,0 +1,4 @@
+#!/bin/sh
+# cleanup -- remove generated files on macOS / Linux
+
+rm -f inst/vtk.conf

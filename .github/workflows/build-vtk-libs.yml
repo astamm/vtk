@@ -1,0 +1,349 @@
+name: Build VTK Static Libraries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      vtk_version:
+        description: 'VTK version to build (override default)'
+        required: false
+        default: ''
+
+env:
+  VTK_VERSION: '9.5.2'
+
+jobs:
+  # ── Windows: native UCRT64 build via Rtools ────────────────────────────────
+  build-windows:
+    name: Windows (ucrt-x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up R and Rtools45
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          rtools-version: '45'
+
+      - name: Add Rtools to PATH
+        shell: pwsh
+        run: |
+          $rtools = "C:\rtools45"
+          echo "$rtools\ucrt64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "$rtools\usr\bin"    | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Download VTK source
+        shell: pwsh
+        run: |
+          $ver   = "${{ env.VTK_VERSION }}"
+          $minor = ($ver -split '\.')[0..1] -join '.'
+          $url   = "https://www.vtk.org/files/release/${minor}/VTK-${ver}.tar.gz"
+          Write-Host "Downloading $url"
+          curl.exe -fsSL $url -o vtk-src.tar.gz
+          tar -xzf vtk-src.tar.gz
+
+      - name: Configure VTK
+        shell: pwsh
+        run: |
+          $ver = "${{ env.VTK_VERSION }}"
+          New-Item -ItemType Directory -Force build | Out-Null
+          Push-Location build
+          cmake -G "MinGW Makefiles" `
+            -DCMAKE_INSTALL_PREFIX="$PWD\..\install" `
+            -DCMAKE_C_COMPILER="C:\rtools45\ucrt64\bin\gcc.exe" `
+            -DCMAKE_CXX_COMPILER="C:\rtools45\ucrt64\bin\g++.exe" `
+            -DCMAKE_RC_COMPILER="C:\rtools45\ucrt64\bin\windres.exe" `
+            -DBUILD_SHARED_LIBS=OFF `
+            -DVTK_BUILD_ALL_MODULES=OFF `
+            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES `
+            -DVTK_MODULE_ENABLE_VTK_IOXML=YES `
+            -DVTK_MODULE_ENABLE_VTK_IOCore=YES `
+            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES `
+            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES `
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON `
+            "..\VTK-${ver}"
+          Pop-Location
+
+      - name: Build and install VTK
+        shell: pwsh
+        run: |
+          Push-Location build
+          mingw32-make -j$([Environment]::ProcessorCount)
+          mingw32-make install
+          Pop-Location
+
+      - name: Package archive
+        shell: pwsh
+        run: |
+          $ver = "${{ env.VTK_VERSION }}"
+          $pkg = "vtk-${ver}-ucrt-x64"
+          $vtk_minor = ($ver -split '\.')[0..1] -join '.'
+          New-Item -ItemType Directory -Force "$pkg\include\vtk-${vtk_minor}" | Out-Null
+          New-Item -ItemType Directory -Force "$pkg\lib"                      | Out-Null
+          # Headers: copy contents into include/vtk-X.Y/
+          $src_inc = Get-ChildItem "install\include" -Directory | Where-Object { $_.Name -match '^vtk-' } | Select-Object -First 1
+          if ($src_inc) {
+            Copy-Item "$($src_inc.FullName)\*" "$pkg\include\vtk-${vtk_minor}\" -Recurse
+          }
+          # Static libraries
+          Copy-Item "install\lib\*.a" "$pkg\lib\"
+          Compress-Archive -Path $pkg -DestinationPath "${pkg}.zip"
+          Write-Host "Created ${pkg}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vtk-windows-ucrt-x64
+          path: vtk-${{ env.VTK_VERSION }}-ucrt-x64.zip
+          retention-days: 7
+
+  # ── macOS arm64 ────────────────────────────────────────────────────────────
+  build-macos-arm64:
+    name: macOS arm64
+    runs-on: macos-latest   # Apple silicon runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cmake + ninja
+        run: brew install cmake ninja
+
+      - name: Download VTK source
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          curl -fsSL "https://www.vtk.org/files/release/${MINOR}/VTK-${VER}.tar.gz" -o vtk-src.tar.gz
+          tar -xzf vtk-src.tar.gz
+
+      - name: Configure VTK
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          mkdir build && cd build
+          cmake -G Ninja \
+            -DCMAKE_INSTALL_PREFIX="$PWD/../install" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DVTK_BUILD_ALL_MODULES=OFF \
+            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOXML=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            ../VTK-${VER}
+
+      - name: Build and install VTK
+        run: |
+          cd build
+          ninja -j$(sysctl -n hw.logicalcpu)
+          ninja install
+
+      - name: Package archive
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          PKG="vtk-${VER}-darwin-arm64"
+          mkdir -p "${PKG}/include/vtk-${MINOR}" "${PKG}/lib"
+          # Headers
+          SRC_INC=$(find install/include -maxdepth 1 -name "vtk-*" -type d | sort -V | tail -1)
+          if [ -n "${SRC_INC}" ]; then
+            cp -R "${SRC_INC}/"* "${PKG}/include/vtk-${MINOR}/"
+          fi
+          # Static libraries
+          find install/lib -name "*.a" -exec cp {} "${PKG}/lib/" \;
+          tar -czf "${PKG}.tar.gz" "${PKG}"
+          echo "Created ${PKG}.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vtk-macos-arm64
+          path: vtk-${{ env.VTK_VERSION }}-darwin-arm64.tar.gz
+          retention-days: 7
+
+  # ── macOS x86_64 ───────────────────────────────────────────────────────────
+  build-macos-x86_64:
+    name: macOS x86_64
+    runs-on: macos-13         # Intel runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cmake + ninja
+        run: brew install cmake ninja
+
+      - name: Download VTK source
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          curl -fsSL "https://www.vtk.org/files/release/${MINOR}/VTK-${VER}.tar.gz" -o vtk-src.tar.gz
+          tar -xzf vtk-src.tar.gz
+
+      - name: Configure VTK
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          mkdir build && cd build
+          cmake -G Ninja \
+            -DCMAKE_INSTALL_PREFIX="$PWD/../install" \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DVTK_BUILD_ALL_MODULES=OFF \
+            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOXML=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            ../VTK-${VER}
+
+      - name: Build and install VTK
+        run: |
+          cd build
+          ninja -j$(sysctl -n hw.logicalcpu)
+          ninja install
+
+      - name: Package archive
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          PKG="vtk-${VER}-darwin-x86_64"
+          mkdir -p "${PKG}/include/vtk-${MINOR}" "${PKG}/lib"
+          SRC_INC=$(find install/include -maxdepth 1 -name "vtk-*" -type d | sort -V | tail -1)
+          if [ -n "${SRC_INC}" ]; then
+            cp -R "${SRC_INC}/"* "${PKG}/include/vtk-${MINOR}/"
+          fi
+          find install/lib -name "*.a" -exec cp {} "${PKG}/lib/" \;
+          tar -czf "${PKG}.tar.gz" "${PKG}"
+          echo "Created ${PKG}.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vtk-macos-x86_64
+          path: vtk-${{ env.VTK_VERSION }}-darwin-x86_64.tar.gz
+          retention-days: 7
+
+  # ── Linux x86_64 ───────────────────────────────────────────────────────────
+  build-linux:
+    name: Linux x86_64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build build-essential libgl1-mesa-dev \
+            libxt-dev libxrender-dev libxext-dev
+
+      - name: Download VTK source
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          curl -fsSL "https://www.vtk.org/files/release/${MINOR}/VTK-${VER}.tar.gz" -o vtk-src.tar.gz
+          tar -xzf vtk-src.tar.gz
+
+      - name: Configure VTK
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          mkdir build && cd build
+          cmake -G Ninja \
+            -DCMAKE_INSTALL_PREFIX="$PWD/../install" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DVTK_BUILD_ALL_MODULES=OFF \
+            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOXML=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DCMAKE_C_FLAGS="-fPIC" \
+            -DCMAKE_CXX_FLAGS="-fPIC" \
+            ../VTK-${VER}
+
+      - name: Build and install VTK
+        run: |
+          cd build
+          ninja -j$(nproc)
+          ninja install
+
+      - name: Package archive
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          PKG="vtk-${VER}-linux-x86_64"
+          mkdir -p "${PKG}/include/vtk-${MINOR}" "${PKG}/lib"
+          SRC_INC=$(find install/include -maxdepth 1 -name "vtk-*" -type d | sort -V | tail -1)
+          if [ -n "${SRC_INC}" ]; then
+            cp -R "${SRC_INC}/"* "${PKG}/include/vtk-${MINOR}/"
+          fi
+          find install/lib -name "*.a" -exec cp {} "${PKG}/lib/" \;
+          tar -czf "${PKG}.tar.gz" "${PKG}"
+          echo "Created ${PKG}.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vtk-linux-x86_64
+          path: vtk-${{ env.VTK_VERSION }}-linux-x86_64.tar.gz
+          retention-days: 7
+
+  # ── GitHub Release ─────────────────────────────────────────────────────────
+  release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-macos-arm64, build-macos-x86_64, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f | sort
+
+      - name: Create / update release v${{ env.VTK_VERSION }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VTK_VERSION }}
+          name: VTK ${{ env.VTK_VERSION }} — pre-built static libraries
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          body: |
+            Pre-built VTK **${{ env.VTK_VERSION }}** static (`.a`) libraries for
+            use with the [`vtk`](https://github.com/astamm/vtk) R package.
+
+            ## Archives
+
+            | Platform | Archive |
+            |---|---|
+            | Windows (Rtools45 UCRT x64) | `vtk-${{ env.VTK_VERSION }}-ucrt-x64.zip` |
+            | macOS arm64 (Apple Silicon) | `vtk-${{ env.VTK_VERSION }}-darwin-arm64.tar.gz` |
+            | macOS x86\_64 (Intel) | `vtk-${{ env.VTK_VERSION }}-darwin-x86_64.tar.gz` |
+            | Linux x86\_64 | `vtk-${{ env.VTK_VERSION }}-linux-x86_64.tar.gz` |
+
+            ## Archive layout
+
+            ```
+            include/vtk-9.5/    ← VTK headers
+            lib/                ← static libraries (.a)
+            ```
+
+            ## CMake flags
+
+            ```cmake
+            -DBUILD_SHARED_LIBS=OFF
+            -DVTK_BUILD_ALL_MODULES=OFF
+            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES
+            -DVTK_MODULE_ENABLE_VTK_IOXML=YES
+            -DVTK_MODULE_ENABLE_VTK_IOCore=YES
+            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES
+            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+            ```
+          files: |
+            artifacts/vtk-windows-ucrt-x64/vtk-${{ env.VTK_VERSION }}-ucrt-x64.zip
+            artifacts/vtk-macos-arm64/vtk-${{ env.VTK_VERSION }}-darwin-arm64.tar.gz
+            artifacts/vtk-macos-x86_64/vtk-${{ env.VTK_VERSION }}-darwin-x86_64.tar.gz
+            artifacts/vtk-linux-x86_64/vtk-${{ env.VTK_VERSION }}-linux-x86_64.tar.gz

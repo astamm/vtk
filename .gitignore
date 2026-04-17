@@ -1,0 +1,13 @@
+# R package build artefacts
+*.Rcheck/
+*.tar.gz
+*.zip
+inst/vtk.conf
+windows/
+
+# macOS
+.DS_Store
+
+# IDE
+.Rproj.user/
+.Rhistory

@@ -35,6 +35,14 @@ jobs:
           rtools-version: '45'
         # r-lib/actions uses pwsh internally — that's fine; our run steps use bash
 
+      - name: Install build tools via pacman
+        run: |
+          pacman -Sy --noconfirm --needed \
+            mingw-w64-ucrt-x86_64-cmake \
+            mingw-w64-ucrt-x86_64-ninja \
+            mingw-w64-ucrt-x86_64-gcc \
+            mingw-w64-ucrt-x86_64-binutils
+
       - name: Download VTK source
         run: |
           VER="${{ env.VTK_VERSION }}"
@@ -49,7 +57,7 @@ jobs:
           VER="${{ env.VTK_VERSION }}"
           mkdir -p build
           cd build
-          cmake -G "MinGW Makefiles" \
+          cmake -G Ninja \
             -DCMAKE_INSTALL_PREFIX="$(pwd)/../install" \
             -DCMAKE_C_COMPILER=/ucrt64/bin/gcc \
             -DCMAKE_CXX_COMPILER=/ucrt64/bin/g++ \
@@ -67,8 +75,8 @@ jobs:
       - name: Build and install VTK
         run: |
           cd build
-          mingw32-make -j$(nproc)
-          mingw32-make install
+          ninja -j$(nproc)
+          ninja install
 
       - name: Package archive
         run: |

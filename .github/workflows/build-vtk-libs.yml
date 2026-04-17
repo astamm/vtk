@@ -70,6 +70,8 @@ jobs:
             -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
             -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            "-DCMAKE_C_FLAGS=-DH5_HAVE_VASPRINTF=0" \
+            "-DCMAKE_CXX_FLAGS=-DH5_HAVE_VASPRINTF=0" \
             ../VTK-${VER}
 
       - name: Build and install VTK

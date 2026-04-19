@@ -92,6 +92,14 @@ read_vtk_conf <- function(path = NULL) {
         sprintf('-L"%s"', lib_dir),
         paste0("-Wl,-all_load ", lib_flags)
       )
+    } else if (Sys.info()[["sysname"]] == "Windows") {
+      conf[["VTK_LIBS"]] <- paste(
+        sprintf('-L"%s"', lib_dir),
+        "-Wl,--start-group",
+        lib_flags,
+        "-Wl,--end-group",
+        "-lgdi32 -lpthread -lucrt"
+      )
     } else {
       conf[["VTK_LIBS"]] <- paste(
         sprintf('-L"%s"', lib_dir),

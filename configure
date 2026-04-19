@@ -64,29 +64,24 @@ vtk_detect_from_prefix() {
 vtk_build_flags() {
     _lib="$1"
     _rpath="${2:-}"
-    _s=""
-    if test -n "${vtk_version_suffix}"; then
-        _s="-${vtk_version_suffix}"
-    fi
     vtk_cppflags="-isystem${vtk_include_dir}"
-    vtk_libs="-L${_lib}/lib"
-    vtk_libs="${vtk_libs} -lvtkIOLegacy${_s}"
-    vtk_libs="${vtk_libs} -lvtkIOXML${_s}"
-    vtk_libs="${vtk_libs} -lvtkIOXMLParser${_s}"
-    vtk_libs="${vtk_libs} -lvtkIOCore${_s}"
-    vtk_libs="${vtk_libs} -lvtkCommonExecutionModel${_s}"
-    vtk_libs="${vtk_libs} -lvtkCommonDataModel${_s}"
-    vtk_libs="${vtk_libs} -lvtkCommonTransforms${_s}"
-    vtk_libs="${vtk_libs} -lvtkCommonMisc${_s}"
-    vtk_libs="${vtk_libs} -lvtkCommonMath${_s}"
-    vtk_libs="${vtk_libs} -lvtkCommonCore${_s}"
-    vtk_libs="${vtk_libs} -lvtkexpat${_s}"
-    vtk_libs="${vtk_libs} -lvtklz4${_s}"
-    vtk_libs="${vtk_libs} -lvtklzma${_s}"
-    vtk_libs="${vtk_libs} -lvtkzlib${_s}"
-    vtk_libs="${vtk_libs} -lvtkloguru${_s}"
-    vtk_libs="${vtk_libs} -lvtkdoubleconversion${_s}"
-    vtk_libs="${vtk_libs} -lvtksys${_s}"
+    ## Discover every .a in the lib directory and wrap in a linker group.
+    ## This handles all transitive dependencies and circular references
+    ## regardless of library ordering (GNU ld / MinGW ld).
+    _lib_flags=""
+    for _a in "${_lib}/lib/"*.a; do
+        _base="$(basename "${_a}" .a)"
+        _name="${_base#lib}"
+        _lib_flags="${_lib_flags} -l${_name}"
+    done
+    ## GNU ld (Linux) and MinGW (Windows) support --start-group/--end-group.
+    ## Apple ld (macOS) does not; use -all_load instead.
+    _os="$(uname -s)"
+    if test "${_os}" = "Darwin"; then
+        vtk_libs="-L${_lib}/lib -Wl,-all_load${_lib_flags}"
+    else
+        vtk_libs="-L${_lib}/lib -Wl,--start-group${_lib_flags} -Wl,--end-group"
+    fi
     if test -n "${_rpath}"; then
         vtk_libs="${vtk_libs} -Wl,-rpath,${_rpath}"
     fi

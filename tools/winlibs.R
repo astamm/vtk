@@ -108,25 +108,19 @@ lib_dir <- normalizePath(lib_root, winslash = "/")
 
 ## ── Build compiler / linker flag strings ─────────────────────────────────────
 vtk_cppflags <- sprintf('-I"%s"', include_dir)
+
+## Discover every .a in the lib directory and wrap in a linker group so that
+## the linker resolves circular dependencies regardless of ordering.
+all_libs <- list.files(lib_dir, pattern = "\\.a$", full.names = FALSE)
+lib_flags <- paste(
+  sprintf("-l%s", sub("\\.a$", "", sub("^lib", "", all_libs))),
+  collapse = " "
+)
 vtk_libs <- paste(
   sprintf('-L"%s"', lib_dir),
-  sprintf("-lvtkIOLegacy%s", lib_suffix),
-  sprintf("-lvtkIOXML%s", lib_suffix),
-  sprintf("-lvtkIOXMLParser%s", lib_suffix),
-  sprintf("-lvtkIOCore%s", lib_suffix),
-  sprintf("-lvtkCommonExecutionModel%s", lib_suffix),
-  sprintf("-lvtkCommonDataModel%s", lib_suffix),
-  sprintf("-lvtkCommonTransforms%s", lib_suffix),
-  sprintf("-lvtkCommonMisc%s", lib_suffix),
-  sprintf("-lvtkCommonMath%s", lib_suffix),
-  sprintf("-lvtkCommonCore%s", lib_suffix),
-  sprintf("-lvtkexpat%s", lib_suffix),
-  sprintf("-lvtklz4%s", lib_suffix),
-  sprintf("-lvtklzma%s", lib_suffix),
-  sprintf("-lvtkzlib%s", lib_suffix),
-  sprintf("-lvtkloguru%s", lib_suffix),
-  sprintf("-lvtkdoubleconversion%s", lib_suffix),
-  sprintf("-lvtksys%s", lib_suffix)
+  "-Wl,--start-group",
+  lib_flags,
+  "-Wl,--end-group"
 )
 
 ## ── Write inst/vtk.conf ───────────────────────────────────────────────────────

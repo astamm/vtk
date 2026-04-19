@@ -78,26 +78,28 @@ read_vtk_conf <- function(path = NULL) {
 
     lib_dir <- file.path(base_dir, "lib")
     conf[["VTK_CPPFLAGS"]] <- sprintf('-I"%s"', inc_dir)
-    conf[["VTK_LIBS"]] <- paste(
-      sprintf('-L"%s"', lib_dir),
-      sprintf("-lvtkIOLegacy%s", lib_sfx),
-      sprintf("-lvtkIOXML%s", lib_sfx),
-      sprintf("-lvtkIOXMLParser%s", lib_sfx),
-      sprintf("-lvtkIOCore%s", lib_sfx),
-      sprintf("-lvtkCommonExecutionModel%s", lib_sfx),
-      sprintf("-lvtkCommonDataModel%s", lib_sfx),
-      sprintf("-lvtkCommonTransforms%s", lib_sfx),
-      sprintf("-lvtkCommonMisc%s", lib_sfx),
-      sprintf("-lvtkCommonMath%s", lib_sfx),
-      sprintf("-lvtkCommonCore%s", lib_sfx),
-      sprintf("-lvtkexpat%s", lib_sfx),
-      sprintf("-lvtklz4%s", lib_sfx),
-      sprintf("-lvtklzma%s", lib_sfx),
-      sprintf("-lvtkzlib%s", lib_sfx),
-      sprintf("-lvtkloguru%s", lib_sfx),
-      sprintf("-lvtkdoubleconversion%s", lib_sfx),
-      sprintf("-lvtksys%s", lib_sfx)
+    ## Discover every .a present and wrap in a linker group so that the
+    ## linker resolves all transitive dependencies regardless of ordering.
+    all_libs <- list.files(lib_dir, pattern = "\\.a$", full.names = FALSE)
+    lib_flags <- paste(
+      sprintf("-l%s", sub("\\.a$", "", sub("^lib", "", all_libs))),
+      collapse = " "
     )
+    ## GNU ld (Linux) and MinGW (Windows) support --start-group/--end-group.
+    ## Apple ld (macOS) does not; use -all_load instead.
+    if (Sys.info()[["sysname"]] == "Darwin") {
+      conf[["VTK_LIBS"]] <- paste(
+        sprintf('-L"%s"', lib_dir),
+        paste0("-Wl,-all_load ", lib_flags)
+      )
+    } else {
+      conf[["VTK_LIBS"]] <- paste(
+        sprintf('-L"%s"', lib_dir),
+        "-Wl,--start-group",
+        lib_flags,
+        "-Wl,--end-group"
+      )
+    }
   }
 
   conf

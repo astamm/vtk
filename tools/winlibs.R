@@ -6,28 +6,13 @@
 
 vtk_version <- "9.5.2"
 
-## Detect the active Rtools / MSYS2 environment.
-## MSYSTEM is set by Rtools42+ (UCRT64, MINGW64, CLANG64, ...).
-msystem <- Sys.getenv("MSYSTEM", unset = "UCRT64")
+## The Windows zip is always built with the x86_64-w64-mingw32.static.posix
+## toolchain — the same one used by R CMD INSTALL on Rtools45.  There is no
+## per-MSYSTEM branching: one toolchain, one binary.
+toolchain <- "static-posix"
 
 ## Only x86_64 is supported for now; arm64 support can be added later.
 arch <- "x64"
-
-toolchain <- switch(
-  msystem,
-  UCRT64 = "ucrt",
-  MINGW64 = "mingw",
-  CLANG64 = "clang",
-  CLANGARM64 = "clangarm64",
-  {
-    message(
-      "WARNING: Unknown MSYSTEM '",
-      msystem,
-      "'; assuming UCRT64 toolchain."
-    )
-    "ucrt"
-  }
-)
 
 zip_name <- sprintf("vtk-%s-%s-%s.zip", vtk_version, toolchain, arch)
 url <- sprintf(

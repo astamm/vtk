@@ -20,12 +20,12 @@ env:
   VTK_VERSION: '9.5.2'
 
 jobs:
-  # ── Windows: native UCRT64 build via Rtools bash (MSYS2) ──────────────────
+  # ── Windows: x86_64-w64-mingw32.static.posix (Rtools45 R-package toolchain) ─
   build-windows:
-    name: Windows (ucrt-x64)
+    name: Windows (static-posix-x64)
     runs-on: windows-latest
     env:
-      MSYSTEM: UCRT64
+      MSYSTEM: UCRT64      # bash session init; cmake/ninja come from ucrt64
       CHERE_INVOKING: '1'
     defaults:
       run:
@@ -45,17 +45,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: install
-          key: vtk-${{ env.VTK_VERSION }}-windows-ucrt-x64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
+          key: vtk-${{ env.VTK_VERSION }}-windows-static-posix-x64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
 
-      - name: Install build tools via pacman
+      - name: Install build tools via pacman (cmake + ninja only; compiler from static.posix)
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           pacman -Sy --noconfirm --needed \
             mingw-w64-ucrt-x86_64-cmake \
-            mingw-w64-ucrt-x86_64-ninja \
-            mingw-w64-ucrt-x86_64-gcc \
-            mingw-w64-ucrt-x86_64-binutils
-          # Prepend UCRT64 bin so cmake/ninja/gcc are found before system tools
+            mingw-w64-ucrt-x86_64-ninja
+          # Prepend UCRT64 bin so cmake/ninja are found; compiler is set explicitly below
           echo "export PATH=/ucrt64/bin:\$PATH" >> ~/.bash_profile
 
       - name: Download VTK source
@@ -72,12 +70,20 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           VER="${{ env.VTK_VERSION }}"
+          # x86_64-w64-mingw32.static.posix — the toolchain used by R CMD INSTALL
+          # on CRAN/Rtools45.  Using it ensures symbols match what downstream
+          # packages expect (no __imp_* DLL-import stubs, no UCRT-only symbols).
+          TCHAIN=/x86_64-w64-mingw32.static.posix/bin
           mkdir -p build install
           INSTALL_PREFIX="$(cygpath -w "$(pwd)/install")"
           cd build
           cmake -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
+            -DCMAKE_C_COMPILER="${TCHAIN}/gcc" \
+            -DCMAKE_CXX_COMPILER="${TCHAIN}/g++" \
+            -DCMAKE_AR="${TCHAIN}/ar" \
+            -DCMAKE_RANLIB="${TCHAIN}/ranlib" \
             -DBUILD_SHARED_LIBS=OFF \
             -DVTK_BUILD_ALL_MODULES=OFF \
             -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
@@ -108,7 +114,7 @@ jobs:
         run: |
           VER="${{ env.VTK_VERSION }}"
           MINOR="${VER%.*}"
-          PKG="vtk-${VER}-ucrt-x64"
+          PKG="vtk-${VER}-static-posix-x64"
           mkdir -p "${PKG}/include/vtk-${MINOR}" "${PKG}/lib"
           # Headers
           SRC_INC=$(find install/include -maxdepth 1 -name "vtk-*" -type d | sort -V | tail -1)
@@ -122,8 +128,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: vtk-windows-ucrt-x64
-          path: vtk-${{ env.VTK_VERSION }}-ucrt-x64.zip
+          name: vtk-windows-static-posix-x64
+          path: vtk-${{ env.VTK_VERSION }}-static-posix-x64.zip
           retention-days: 7
 
   # ── macOS arm64 ────────────────────────────────────────────────────────────
@@ -381,7 +387,7 @@ jobs:
 
             | Platform | Archive |
             |---|---|
-            | Windows (Rtools45 UCRT x64) | `vtk-${{ env.VTK_VERSION }}-ucrt-x64.zip` |
+            | Windows (Rtools45 static.posix x64) | `vtk-${{ env.VTK_VERSION }}-static-posix-x64.zip` |
             | macOS arm64 (Apple Silicon) | `vtk-${{ env.VTK_VERSION }}-darwin-arm64.tar.gz` |
             | macOS x86\_64 (Intel) | `vtk-${{ env.VTK_VERSION }}-darwin-x86_64.tar.gz` |
             | Linux x86\_64 | `vtk-${{ env.VTK_VERSION }}-linux-x86_64.tar.gz` |
@@ -406,7 +412,7 @@ jobs:
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON
             ```
           files: |
-            artifacts/vtk-windows-ucrt-x64/vtk-${{ env.VTK_VERSION }}-ucrt-x64.zip
+            artifacts/vtk-windows-static-posix-x64/vtk-${{ env.VTK_VERSION }}-static-posix-x64.zip
             artifacts/vtk-macos-arm64/vtk-${{ env.VTK_VERSION }}-darwin-arm64.tar.gz
             artifacts/vtk-macos-x86_64/vtk-${{ env.VTK_VERSION }}-darwin-x86_64.tar.gz
             artifacts/vtk-linux-x86_64/vtk-${{ env.VTK_VERSION }}-linux-x86_64.tar.gz

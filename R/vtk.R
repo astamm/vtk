@@ -101,8 +101,9 @@ read_vtk_conf <- function(path = NULL) {
         ## Windows system libraries required by VTK modules:
         ## gdi32      - GDI functions (vtkWin32OutputWindow)
         ## winpthread - nanosleep64 / POSIX threads (vtkloguru)
-        ## ucrtbase   - ftime64, fseeko64, ftello64 (vtkCommonSystem, vtkpugixml)
-        "-lgdi32 -lwinpthread -lucrtbase"
+        ## mingwex    - ftime64 and other POSIX wrappers (vtkCommonSystem)
+        ## ucrtbase   - __imp_fseeko64, __imp_ftello64 (vtkpugixml)
+        "-lgdi32 -lwinpthread -lmingwex -lucrtbase"
       )
     } else {
       conf[["VTK_LIBS"]] <- paste(

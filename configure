@@ -66,25 +66,78 @@ vtk_build_flags() {
     _rpath="${2:-}"
     vtk_cppflags="-isystem${vtk_include_dir}"
     ## Discover every .a in the lib directory and wrap in a linker group.
-    ## This handles all transitive dependencies and circular references
-    ## regardless of library ordering (GNU ld / MinGW ld).
+    ## Guard with test -f: an unmatched glob returns the literal pattern
+    ## (e.g. on a shared VTK build), which would produce -l* and cause an
+    ## 'ld: library * not found' error.
     _lib_flags=""
     for _a in "${_lib}/lib/"*.a; do
+        test -f "${_a}" || continue
         _base="$(basename "${_a}" .a)"
         _name="${_base#lib}"
         _lib_flags="${_lib_flags} -l${_name}"
     done
-    ## GNU ld (Linux) and MinGW (Windows) support --start-group/--end-group.
-    ## Apple ld (macOS) does not; use -all_load instead.
     _os="$(uname -s)"
-    if test "${_os}" = "Darwin"; then
-        vtk_libs="-L${_lib}/lib -Wl,-all_load${_lib_flags}"
+    if test -n "${_lib_flags}"; then
+        ## Static libs found: use linker groups to resolve circular dependencies.
+        ## GNU ld (Linux) supports --start-group/--end-group.
+        ## Apple ld (macOS) does not; use -all_load instead.
+        if test "${_os}" = "Darwin"; then
+            vtk_libs="-L${_lib}/lib -Wl,-all_load${_lib_flags}"
+        else
+            vtk_libs="-L${_lib}/lib -Wl,--start-group${_lib_flags} -Wl,--end-group"
+        fi
     else
-        vtk_libs="-L${_lib}/lib -Wl,--start-group${_lib_flags} -Wl,--end-group"
+        ## No static libs found (shared/dynamic build, e.g. Homebrew on macOS).
+        ## Enumerate the canonical versioned dylib/so symlinks.
+        ## Homebrew names them libvtkFoo-X.Y.dylib (soname symlink) plus
+        ## libvtkFoo-X.Y.Z.dylib and libvtkFoo-X.Y.X.Y.dylib (full-version
+        ## symlinks). Filter to canonical names using the version suffix.
+        if test -n "${vtk_version_suffix}"; then
+            ## Match exact canonical pattern: libvtk*-X.Y.dylib or libvtk*-X.Y.so
+            for _d in "${_lib}/lib/"libvtk*-${vtk_version_suffix}.dylib \
+                       "${_lib}/lib/"libvtk*-${vtk_version_suffix}.so; do
+                test -f "${_d}" || continue
+                _base="$(basename "${_d}")"
+                case "${_base}" in
+                    *.dylib) _name="${_base%.dylib}" ;;
+                    *.so)    _name="${_base%.so}" ;;
+                    *)       continue ;;
+                esac
+                _name="${_name#lib}"
+                _lib_flags="${_lib_flags} -l${_name}"
+            done
+        else
+            ## Unversioned shared build: enumerate libvtk*.dylib / libvtk*.so
+            ## that have no trailing version numbers after the suffix.
+            for _d in "${_lib}/lib/"libvtk*.dylib "${_lib}/lib/"libvtk*.so; do
+                test -f "${_d}" || continue
+                _base="$(basename "${_d}")"
+                case "${_base}" in
+                    *.dylib) _name="${_base%.dylib}" ;;
+                    *.so)    _name="${_base%.so}" ;;
+                    *)       continue ;;
+                esac
+                case "${_name}" in *.[0-9]*) continue ;; esac
+                _name="${_name#lib}"
+                case " ${_lib_flags} " in
+                    *" -l${_name} "*) ;;
+                    *) _lib_flags="${_lib_flags} -l${_name}" ;;
+                esac
+            done
+        fi
+        vtk_libs="-L${_lib}/lib${_lib_flags}"
     fi
     if test -n "${_rpath}"; then
         vtk_libs="${vtk_libs} -Wl,-rpath,${_rpath}"
     fi
+}
+
+## vtk_flags_from_pkgconfig PC_NAME
+## Populates vtk_cppflags and vtk_libs via pkg-config.
+vtk_flags_from_pkgconfig() {
+    _pc="$1"
+    vtk_cppflags="$(pkg-config --cflags "${_pc}" | sed 's/-I/-isystem/g')"
+    vtk_libs="$(pkg-config --libs "${_pc}")"
 }
 
 vtk_found="no"

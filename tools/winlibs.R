@@ -67,7 +67,7 @@ if (!dir.exists(dest_dir)) {
   )
 
   dir.create(dest_dir, recursive = TRUE, showWarnings = FALSE)
-  unzip(tmp, exdir = dest_dir)
+  unzip(tmp, exdir = "windows")
   unlink(tmp)
 } else {
   message("Using cached VTK at: ", dest_dir)
@@ -79,13 +79,18 @@ lib_root <- file.path(dest_dir, "lib")
 
 ## Support both versioned (vtk-X.Y) and unversioned (vtk) sub-directories.
 versioned_dirs <- list.dirs(include_root, recursive = FALSE)
-versioned_dirs <- grep("vtk-[0-9]", basename(versioned_dirs), value = TRUE)
+versioned_dirs <- grep(
+  "vtk-[0-9]",
+  basename(versioned_dirs),
+  value = TRUE
+)
 
 if (length(versioned_dirs) > 0) {
   ## Pick the highest version if multiple exist.
-  suffix <- versioned_dirs[length(versioned_dirs)] # already sorted
-  include_dir <- file.path(include_root, suffix)
-  lib_suffix <- paste0("-", suffix)
+  suffix_dir <- versioned_dirs[length(versioned_dirs)] # bare name e.g. vtk-9.5
+  include_dir <- file.path(include_root, suffix_dir)
+  ## lib names are e.g. libvtkIOLegacy-9.5.a → strip the leading "vtk"
+  lib_suffix <- sub("^vtk", "", suffix_dir) # e.g. -9.5
 } else if (dir.exists(file.path(include_root, "vtk"))) {
   include_dir <- file.path(include_root, "vtk")
   lib_suffix <- ""

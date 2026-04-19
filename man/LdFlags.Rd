@@ -16,6 +16,6 @@ link C++ code against VTK.  Intended to be called from a downstream
 package's \code{src/Makevars} or \code{src/Makevars.win}:
 }
 \details{
-\if{html}{\out{<div class="sourceCode makefile">}}\preformatted{PKG_LIBS = $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript" -e "vtk::LdFlags()")
+\if{html}{\out{<div class="sourceCode makefile">}}\preformatted{PKG_LIBS = $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript" -e "rvtk::LdFlags()")
 }\if{html}{\out{</div>}}
 }

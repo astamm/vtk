@@ -16,6 +16,6 @@ that includes VTK headers.  Intended to be called from a downstream
 package's \code{src/Makevars} or \code{src/Makevars.win}:
 }
 \details{
-\if{html}{\out{<div class="sourceCode makefile">}}\preformatted{PKG_CPPFLAGS = $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript" -e "vtk::CppFlags()")
+\if{html}{\out{<div class="sourceCode makefile">}}\preformatted{PKG_CPPFLAGS = $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript" -e "rvtk::CppFlags()")
 }\if{html}{\out{</div>}}
 }

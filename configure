@@ -163,25 +163,72 @@ if test "${vtk_found}" = "no" && test "${os_type}" = "Linux"; then
 fi
 
 # ---------------------------------------------------------------------------
-# Fail if nothing was found
+# 4. Fallback: download pre-built static libraries from GitHub releases
 # ---------------------------------------------------------------------------
+VTK_PREBUILT_VERSION="9.5.2"
+VTK_PREBUILT_BASE_URL="https://github.com/astamm/vtk/releases/download/v${VTK_PREBUILT_VERSION}"
+
 if test "${vtk_found}" = "no"; then
-    echo ""
-    echo "ERROR: Cannot find VTK >= ${VTK_MIN_VERSION}." >&2
-    echo "" >&2
+    echo "No system VTK found. Trying pre-built static libraries from GitHub..."
+
+    # Determine archive name from OS + arch
+    _arch="$(uname -m)"
+    _tarball=""
     case "${os_type}" in
         Darwin)
-            echo "  Install via Homebrew:  brew install vtk" >&2
-            echo "  Or set VTK_DIR to the installation prefix." >&2 ;;
+            case "${_arch}" in
+                arm64)  _tarball="vtk-${VTK_PREBUILT_VERSION}-darwin-arm64.tar.gz" ;;
+                x86_64) _tarball="vtk-${VTK_PREBUILT_VERSION}-darwin-x86_64.tar.gz" ;;
+                *)
+                    echo "ERROR: Unsupported macOS architecture '${_arch}'." >&2
+                    exit 1 ;;
+            esac ;;
         Linux)
-            echo "  Debian/Ubuntu:  sudo apt-get install libvtk9-dev" >&2
-            echo "  Fedora:         sudo dnf install vtk-devel" >&2
-            echo "  Or set VTK_DIR to the installation prefix." >&2 ;;
+            case "${_arch}" in
+                x86_64) _tarball="vtk-${VTK_PREBUILT_VERSION}-linux-x86_64.tar.gz" ;;
+                *)
+                    echo "ERROR: Unsupported Linux architecture '${_arch}'." >&2
+                    exit 1 ;;
+            esac ;;
         *)
-            echo "  Please set VTK_DIR to the installation prefix." >&2 ;;
+            echo "ERROR: Cannot find VTK >= ${VTK_MIN_VERSION} and no pre-built" >&2
+            echo "       archive is available for OS '${os_type}'." >&2
+            exit 1 ;;
     esac
-    echo "" >&2
-    exit 1
+
+    _url="${VTK_PREBUILT_BASE_URL}/${_tarball}"
+    _prebuilt_dir="$(pwd)/vtk-prebuilt"
+
+    echo "  Downloading ${_url} ..."
+    mkdir -p "${_prebuilt_dir}"
+    _tmp="$(mktemp /tmp/vtk-prebuilt.XXXXXX.tar.gz)"
+
+    if command -v curl > /dev/null 2>&1; then
+        curl -fsSL "${_url}" -o "${_tmp}" || {
+            echo "ERROR: Failed to download pre-built VTK from ${_url}" >&2; exit 1
+        }
+    elif command -v wget > /dev/null 2>&1; then
+        wget -q "${_url}" -O "${_tmp}" || {
+            echo "ERROR: Failed to download pre-built VTK from ${_url}" >&2; exit 1
+        }
+    else
+        echo "ERROR: Neither curl nor wget is available to download pre-built VTK." >&2
+        exit 1
+    fi
+
+    tar -xzf "${_tmp}" -C "${_prebuilt_dir}" --strip-components=1
+    rm -f "${_tmp}"
+    echo "  Extracted to ${_prebuilt_dir}"
+
+    if vtk_detect_from_prefix "${_prebuilt_dir}"; then
+        vtk_build_flags "${_prebuilt_dir}"
+        vtk_found="yes"
+        vtk_version="${VTK_PREBUILT_VERSION}"
+        echo "  -> using pre-built VTK ${VTK_PREBUILT_VERSION}"
+    else
+        echo "ERROR: Pre-built VTK archive layout not recognised at ${_prebuilt_dir}" >&2
+        exit 1
+    fi
 fi
 
 ## Determine version string if not already set (from pkg-config path).

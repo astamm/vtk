@@ -10,6 +10,11 @@ on:
         description: 'VTK version to build (override default)'
         required: false
         default: ''
+      force_rebuild:
+        description: 'Force rebuild even if cache exists (bust cache)'
+        required: false
+        type: boolean
+        default: false
 
 env:
   VTK_VERSION: '9.5.2'
@@ -40,7 +45,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: install
-          key: vtk-${{ env.VTK_VERSION }}-windows-ucrt-x64-${{ hashFiles('.github/workflows/build-vtk-libs.yml') }}
+          key: vtk-${{ env.VTK_VERSION }}-windows-ucrt-x64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
 
       - name: Install build tools via pacman
         if: steps.cache.outputs.cache-hit != 'true'
@@ -82,6 +87,8 @@ jobs:
             -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
             -DVTK_MODULE_ENABLE_VTK_IONetCDF=NO \
             -DVTK_MODULE_ENABLE_VTK_IOHDF=NO \
+            -DVTK_MODULE_ENABLE_VTK_GeovisCore=NO \
+            -DVTK_MODULE_ENABLE_VTK_RenderingCore=NO \
             -DVTK_MODULE_ENABLE_VTK_netcdf=NO \
             -DVTK_MODULE_ENABLE_VTK_libproj=NO \
             -DVTK_MODULE_USE_EXTERNAL_VTK_netcdf=OFF \
@@ -110,7 +117,7 @@ jobs:
           fi
           # Static libraries
           find install/lib -name "*.a" -exec cp {} "${PKG}/lib/" \;
-          7z a -tzip "${PKG}.zip" "${PKG}"
+          zip -r "${PKG}.zip" "${PKG}"
           echo "Created ${PKG}.zip"
 
       - uses: actions/upload-artifact@v4
@@ -131,7 +138,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: install
-          key: vtk-${{ env.VTK_VERSION }}-macos-arm64-${{ hashFiles('.github/workflows/build-vtk-libs.yml') }}
+          key: vtk-${{ env.VTK_VERSION }}-macos-arm64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
 
       - name: Install cmake + ninja
         if: steps.cache.outputs.cache-hit != 'true'
@@ -205,7 +212,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: install
-          key: vtk-${{ env.VTK_VERSION }}-macos-x86_64-${{ hashFiles('.github/workflows/build-vtk-libs.yml') }}
+          key: vtk-${{ env.VTK_VERSION }}-macos-x86_64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
 
       - name: Install cmake + ninja
         if: steps.cache.outputs.cache-hit != 'true'
@@ -277,7 +284,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: install
-          key: vtk-${{ env.VTK_VERSION }}-linux-x86_64-${{ hashFiles('.github/workflows/build-vtk-libs.yml') }}
+          key: vtk-${{ env.VTK_VERSION }}-linux-x86_64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
 
       - name: Install build dependencies
         if: steps.cache.outputs.cache-hit != 'true'

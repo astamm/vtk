@@ -4,6 +4,7 @@
 *.zip
 inst/vtk.conf
 windows/
+vtk-prebuilt/
 
 # macOS
 .DS_Store

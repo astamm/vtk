@@ -53,8 +53,8 @@ jobs:
           pacman -Sy --noconfirm --needed \
             mingw-w64-ucrt-x86_64-cmake \
             mingw-w64-ucrt-x86_64-ninja
-          # Prepend UCRT64 bin so cmake/ninja are found; compiler is set explicitly below
-          echo "export PATH=/ucrt64/bin:\$PATH" >> ~/.bash_profile
+          # ucrt64: cmake + ninja; static.posix: gcc/g++/as/ar/ranlib
+          echo "export PATH=/x86_64-w64-mingw32.static.posix/bin:/ucrt64/bin:\$PATH" >> ~/.bash_profile
 
       - name: Download VTK source
         if: steps.cache.outputs.cache-hit != 'true'
@@ -73,9 +73,9 @@ jobs:
           # x86_64-w64-mingw32.static.posix — the toolchain used by R CMD INSTALL
           # on CRAN/Rtools45.  Using it ensures symbols match what downstream
           # packages expect (no __imp_* DLL-import stubs, no UCRT-only symbols).
-          # Export CC/CXX/AR/RANLIB so CMake picks them up from the environment
-          # (avoids passing MSYS2 POSIX paths via -DCMAKE_*_COMPILER which CMake
-          # mis-identifies as non-absolute on Windows).
+          # Ensure the static.posix toolchain (gcc, g++, as, ar, ranlib …) is
+          # on PATH so gcc can exec its helper tools (as, ld, …) by name.
+          export PATH="/x86_64-w64-mingw32.static.posix/bin:${PATH}"
           TCHAIN=/x86_64-w64-mingw32.static.posix/bin
           export CC="${TCHAIN}/gcc"
           export CXX="${TCHAIN}/g++"

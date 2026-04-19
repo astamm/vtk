@@ -144,13 +144,16 @@ read_vtk_conf <- function(path = NULL) {
         sprintf('-L"%s"', lib_dir),
         "-Wl,--start-group",
         lib_flags,
-        "-Wl,--end-group",
-        ## Windows system libraries required by VTK modules:
+        ## Windows / Rtools45 static.posix system libraries required by VTK:
         ## gdi32      - GDI functions (vtkWin32OutputWindow)
         ## winpthread - nanosleep64 / POSIX threads (vtkloguru)
-        ## mingwex    - ftime64 and other POSIX wrappers (vtkCommonSystem)
-        ## ucrtbase   - __imp_fseeko64, __imp_ftello64 (vtkpugixml)
-        "-lgdi32 -lwinpthread -lmingwex -lucrtbase"
+        ##              must be inside the group for circular dep resolution
+        ## compat     - ftime64 POSIX wrapper (vtkCommonSystem, Rtools45 UCRT)
+        ## mingwex    - additional POSIX wrappers (mingw-w64)
+        ## ucrt       - __imp_fseeko64, __imp_ftello64 (vtkpugixml, UCRT import)
+        ## oleaut32, ole32, ws2_32 - COM/sockets used by some VTK modules
+        "-lgdi32 -lwinpthread -lcompat -lmingwex -lucrt -loleaut32 -lole32 -lws2_32",
+        "-Wl,--end-group"
       )
     } else {
       conf[["VTK_LIBS"]] <- paste(

@@ -120,12 +120,12 @@ vtk_libs <- paste(
   sprintf("-lvtkCommonMisc%s", lib_suffix),
   sprintf("-lvtkCommonMath%s", lib_suffix),
   sprintf("-lvtkCommonCore%s", lib_suffix),
-  sprintf("-lvtkexpat", lib_suffix),
-  sprintf("-lvtklz4", lib_suffix),
-  sprintf("-lvtklzma", lib_suffix),
-  sprintf("-lvtkzlib", lib_suffix),
-  sprintf("-lvtkloguru", lib_suffix),
-  sprintf("-lvtkdouble_conversion", lib_suffix),
+  sprintf("-lvtkexpat%s", lib_suffix),
+  sprintf("-lvtklz4%s", lib_suffix),
+  sprintf("-lvtklzma%s", lib_suffix),
+  sprintf("-lvtkzlib%s", lib_suffix),
+  sprintf("-lvtkloguru%s", lib_suffix),
+  sprintf("-lvtkdoubleconversion%s", lib_suffix),
   sprintf("-lvtksys%s", lib_suffix)
 )
 

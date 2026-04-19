@@ -90,12 +90,12 @@ read_vtk_conf <- function(path = NULL) {
       sprintf("-lvtkCommonMisc%s", lib_sfx),
       sprintf("-lvtkCommonMath%s", lib_sfx),
       sprintf("-lvtkCommonCore%s", lib_sfx),
-      sprintf("-lvtkexpat"),
-      sprintf("-lvtklz4"),
-      sprintf("-lvtklzma"),
-      sprintf("-lvtkzlib"),
-      sprintf("-lvtkloguru"),
-      sprintf("-lvtkdouble_conversion"),
+      sprintf("-lvtkexpat%s", lib_sfx),
+      sprintf("-lvtklz4%s", lib_sfx),
+      sprintf("-lvtklzma%s", lib_sfx),
+      sprintf("-lvtkzlib%s", lib_sfx),
+      sprintf("-lvtkloguru%s", lib_sfx),
+      sprintf("-lvtkdoubleconversion%s", lib_sfx),
       sprintf("-lvtksys%s", lib_sfx)
     )
   }

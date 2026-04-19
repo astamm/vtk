@@ -71,6 +71,7 @@ jobs:
           INSTALL_PREFIX="$(cygpath -w "$(pwd)/install")"
           cd build
           cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
             -DBUILD_SHARED_LIBS=OFF \
             -DVTK_BUILD_ALL_MODULES=OFF \
@@ -150,6 +151,7 @@ jobs:
           VER="${{ env.VTK_VERSION }}"
           mkdir build && cd build
           cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$PWD/../install" \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DBUILD_SHARED_LIBS=OFF \
@@ -223,6 +225,7 @@ jobs:
           VER="${{ env.VTK_VERSION }}"
           mkdir build && cd build
           cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$PWD/../install" \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
             -DBUILD_SHARED_LIBS=OFF \
@@ -298,6 +301,7 @@ jobs:
           VER="${{ env.VTK_VERSION }}"
           mkdir build && cd build
           cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$PWD/../install" \
             -DBUILD_SHARED_LIBS=OFF \
             -DVTK_BUILD_ALL_MODULES=OFF \

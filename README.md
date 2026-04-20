@@ -12,10 +12,10 @@ coverage](https://codecov.io/gh/astamm/rvtk/graph/badge.svg)](https://app.codeco
 
 **rvtk** is an infrastructure package that makes the [Visualization
 Toolkit (VTK)](https://vtk.org/) available to other R packages that need
-to link against it. It provides three utility functions — `CppFlags()`,
-`LdFlags()`, and `VtkVersion()` — that return the correct compiler and
-linker flags for however VTK was found or installed on the current
-machine.
+to link against it. It provides four utility functions — `CppFlags()`,
+`LdFlags()`, `LdFlagsFile()`, and `VtkVersion()` — that return the
+correct compiler and linker flags for however VTK was found or installed
+on the current machine.
 
 ## How VTK is located
 
@@ -31,10 +31,11 @@ as one succeeds:
 5.  Download pre-built static libraries from
     <https://github.com/astamm/rvtk/releases>.
 
-On Windows, pre-built UCRT64 static libraries are always downloaded
-automatically from the same URL.
+On Windows, pre-built static libraries (built with the
+`x86_64-w64-mingw32.static.posix` toolchain bundled in Rtools45) are
+always downloaded automatically from the same URL.
 
-> **Windows limitation:** The Rtools45 UCRT64 environment does not
+> **Windows limitation:** The Rtools45 `static.posix` sysroot does not
 > provide `netcdf` or `libproj`. Consequently, the following VTK modules
 > are **disabled** in the Windows pre-built libraries: `VTK_IONetCDF`,
 > `VTK_IOHDF`, `VTK_GeovisCore`, `VTK_RenderingCore`. Downstream
@@ -62,8 +63,17 @@ Add **rvtk** to the `Imports` field of your `DESCRIPTION`:
 
 Because `$(shell ...)` is a GNU make extension that is **not** allowed
 in `Makevars`, the correct approach is to query `rvtk::CppFlags()` and
-`rvtk::LdFlags()` from a `configure` / `configure.win` script and write
-the results into `src/Makevars` at install time.
+`rvtk::LdFlagsFile()` from a `configure` / `configure.win` script and
+write the results into `src/Makevars` at install time.
+
+`LdFlagsFile()` is preferred over `LdFlags()` for the linker flags
+because the full set of VTK `-l` flags can exceed the 8 191-character
+Windows command-line limit, which causes the linker to silently drop
+flags at the end of the list. `LdFlagsFile(path)` writes the flags to a
+response file and returns `@path` — the short token the linker reads
+instead. GNU ld and LLVM lld both support this syntax. On macOS and
+Linux the flags are also written to the file so the calling convention
+is identical on all platforms.
 
 ### Step 1 — `src/Makevars.in` (template, committed to version control)
 
@@ -75,12 +85,15 @@ PKG_LIBS     = @VTK_LIBS@
 ### Step 2 — `configure`(`.win`)
 
 ``` sh
-# configure (macOS/Linux)
+# configure (macOS/Linux/Windows)
 #!/bin/sh
 set -e
 : "${R_HOME:=$(R RHOME)}"
 VTK_CPPFLAGS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::CppFlags()")"
-VTK_LIBS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::LdFlags()")"
+# LdFlagsFile() writes all linker flags to a response file (src/vtk_libs.rsp)
+# and returns the short token @vtk_libs.rsp that is safe on all platforms,
+# including Windows where the full flag string can exceed the 8191-char limit.
+VTK_LIBS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::LdFlagsFile('src/vtk_libs.rsp')")"
 sed -e "s|@VTK_CPPFLAGS@|${VTK_CPPFLAGS}|g" \
     -e "s|@VTK_LIBS@|${VTK_LIBS}|g" \
     src/Makevars.in > src/Makevars
@@ -100,9 +113,10 @@ chmod +x configure configure.win
 
 ### Step 3 — `.gitignore` / `.Rbuildignore`
 
-Add generated `Makevars` to `.gitignore` so it is not committed:
+Add the generated files to `.gitignore` so they are not committed:
 
     src/Makevars
+    src/vtk_libs.rsp
 
 ### Step 4 - `cleanup`(`.win`)
 
@@ -110,9 +124,9 @@ Add a `cleanup` / `cleanup.win` script that removes the generated
 `Makevars` after installation so it is not accidentally committed:
 
 ``` sh
-# cleanup (macOS/Linux)
+# cleanup (macOS/Linux/Windows)
 #!/bin/sh
-rm -f src/Makevars
+rm -f src/Makevars src/vtk_libs.rsp
 ```
 
 ``` sh
@@ -139,7 +153,7 @@ functions in a dummy R script that is not used for anything else:
 
 ``` r
 # R/rvtk_imports.R
-#' @importFrom rvtk CppFlags
+#' @importFrom rvtk CppFlags LdFlagsFile
 NULL
 ```
 
@@ -151,8 +165,8 @@ You can verify the detected installation at any time:
 library(rvtk)
 CppFlags()
 #> -isystem/opt/homebrew/opt/vtk/include/vtk-9.5
-LdFlags()
-#> -L/opt/homebrew/opt/vtk/lib -lvtkIOLegacy-9.5 -lvtkIOXML-9.5 -lvtkIOCore-9.5 -lvtkCommonCore-9.5 -lvtkCommonDataModel-9.5 -lvtksys-9.5
+LdFlagsFile(tempfile(fileext = ".rsp"))
+#> -L/opt/homebrew/opt/vtk/lib -lvtkIOLegacy-9.5 -lvtkIOXML-9.5 -lvtkIOXMLParser-9.5 -lvtkIOCore-9.5 -lvtkCommonCore-9.5 -lvtkCommonDataModel-9.5 -lvtkCommonExecutionModel-9.5 -lvtkCommonMath-9.5 -lvtkCommonMisc-9.5 -lvtkCommonSystem-9.5 -lvtkCommonTransforms-9.5 -lvtksys-9.5
 VtkVersion()
 #> [1] "9.5.0"
 ```

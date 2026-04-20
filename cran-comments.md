@@ -11,7 +11,7 @@
   (a) always on Windows, and (b) on macOS/Linux when no suitable system VTK
   installation is detected. This follows the established pattern used by
   packages such as 'curl', 'openssl', and 'rwinlib'-style packages.
-* Pre-built binaries are provided for Windows (Rtools45 UCRT x64), macOS
+* Pre-built binaries are provided for Windows (Rtools45 static.posix x64), macOS
   arm64, macOS x86_64, and Linux x86_64. They are built reproducibly via
   GitHub Actions from the official VTK 9.5.2 source tarball.
 * No compiled code is included in the package itself (`NeedsCompilation: no`);
@@ -20,5 +20,6 @@
 ## Downstream usage
 
 Downstream packages declare `Imports: rvtk` and use `rvtk::CppFlags()` /
-`rvtk::LdFlags()` in their `src/Makevars[.win]` to obtain the correct compiler
-and linker flags for the detected or downloaded VTK installation.
+`rvtk::LdFlagsFile()` in their `configure` / `configure.win` scripts to obtain
+the correct compiler and linker flags for the detected or downloaded VTK
+installation.

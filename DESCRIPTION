@@ -17,13 +17,14 @@ Description: Provides pre-compiled static VTK libraries and headers so that
     and well-known system prefixes ('/usr', '/usr/local'). If no suitable
     system installation is found on macOS or Linux, pre-built static libraries
     are downloaded automatically from the package's GitHub releases. On
-    Windows, pre-built static libraries compiled with Rtools (UCRT64) are
-    always downloaded from the same source. Note that on Windows the modules
-    'VTK_IONetCDF', 'VTK_IOHDF', 'VTK_GeovisCore', and 'VTK_RenderingCore'
-    are disabled because 'netcdf' and 'libproj' are not available in the
-    Rtools45 UCRT64 environment. Downstream packages can declare
-    'Imports: rvtk' and obtain the correct compiler and linker flags at install
-    time via 'rvtk::CppFlags()' and 'rvtk::LdFlags()'.
+    Windows, pre-built static libraries compiled with the Rtools45
+    'x86_64-w64-mingw32.static.posix' toolchain are always downloaded from the
+    same source. Note that on Windows the modules 'VTK_IONetCDF',
+    'VTK_IOHDF', 'VTK_GeovisCore', and 'VTK_RenderingCore' are disabled
+    because 'netcdf' and 'libproj' are not available in the Rtools45
+    'static.posix' sysroot. Downstream packages can declare 'Imports: rvtk'
+    and obtain the correct compiler and linker flags at install time via
+    'rvtk::CppFlags()' and 'rvtk::LdFlagsFile()'.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

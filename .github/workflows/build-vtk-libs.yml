@@ -374,6 +374,14 @@ jobs:
       - name: List artifacts
         run: find artifacts -type f | sort
 
+      - name: Delete stale ucrt-x64 asset if present
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete-asset v${{ env.VTK_VERSION }} \
+            "vtk-${{ env.VTK_VERSION }}-ucrt-x64.zip" \
+            --repo ${{ github.repository }} --yes 2>/dev/null || true
+
       - name: Create / update release v${{ env.VTK_VERSION }}
         uses: softprops/action-gh-release@v2
         with:
@@ -383,8 +391,7 @@ jobs:
           prerelease: false
           generate_release_notes: false
           body: |
-            Pre-built VTK **${{ env.VTK_VERSION }}** static (`.a`) libraries for
-            use with the [`rvtk`](https://github.com/astamm/rvtk) R package.
+            Pre-built VTK **${{ env.VTK_VERSION }}** static (`.a`) libraries for use with the [`rvtk`](https://github.com/astamm/rvtk) R package.
 
             ## Archives
 
@@ -402,7 +409,7 @@ jobs:
             lib/                ← static libraries (.a)
             ```
 
-            ## CMake flags
+            ## CMake flags (all platforms)
 
             ```cmake
             -DBUILD_SHARED_LIBS=OFF
@@ -413,6 +420,23 @@ jobs:
             -DVTK_MODULE_ENABLE_VTK_CommonCore=YES
             -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+            ```
+
+            ### Windows additional flags
+
+            ```cmake
+            # Compiler: x86_64-w64-mingw32.static.posix (Rtools45 R-package toolchain)
+            # Set via CC/CXX/AR/RANLIB environment variables before cmake invocation.
+            # Modules disabled because static libs are not available in the sysroot:
+            -DVTK_MODULE_ENABLE_VTK_IONetCDF=NO
+            -DVTK_MODULE_ENABLE_VTK_IOHDF=NO
+            -DVTK_MODULE_ENABLE_VTK_GeovisCore=NO
+            -DVTK_MODULE_ENABLE_VTK_RenderingCore=NO
+            -DVTK_MODULE_ENABLE_VTK_netcdf=NO
+            -DVTK_MODULE_ENABLE_VTK_libproj=NO
+            -DVTK_MODULE_USE_EXTERNAL_VTK_netcdf=OFF
+            -DVTK_MODULE_USE_EXTERNAL_VTK_libproj=NO
+            -DH5_HAVE_VASPRINTF:INTERNAL=0
             ```
           files: |
             artifacts/vtk-windows-static-posix-x64/vtk-${{ env.VTK_VERSION }}-static-posix-x64.zip

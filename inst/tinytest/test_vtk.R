@@ -79,6 +79,21 @@ expect_true("VTK_VERSION" %in% names(res_default))
 expect_true("VTK_CPPFLAGS" %in% names(res_default))
 expect_true("VTK_LIBS" %in% names(res_default))
 
+# ── read_vtk_conf: Windows block – win_base_dir = NULL (system.file path) ────
+# Covers the is.null(win_base_dir) TRUE branch. system.file() with mustWork=TRUE
+# errors when the subdir does not exist inside the installed package, which is
+# the case on non-Windows platforms. That error is sufficient to prove the lines
+# were reached.
+
+conf_win_null <- write_conf(
+  "VTK_VERSION=9.5.2",
+  "VTK_SUFFIX=-9.5",
+  "VTK_SUBDIR=nonexistent_subdir"
+)
+expect_error(
+  rvtk:::read_vtk_conf(conf_win_null, os_type = "windows")
+)
+
 # ── read_vtk_conf: Windows block – versioned include dir (sysname Darwin) ────
 # Exercises: os_type="windows" branch, versioned vdirs path, Darwin lib flags.
 

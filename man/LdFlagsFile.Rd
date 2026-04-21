@@ -4,12 +4,17 @@
 \alias{LdFlagsFile}
 \title{Write VTK linker flags to a response file}
 \usage{
-LdFlagsFile(path)
+LdFlagsFile(path, os_type = .Platform$OS.type)
 }
 \arguments{
 \item{path}{Path (relative to the package source root, i.e. where
 \code{configure} runs) to the response file to write, e.g.
 \code{"src/vtk_libs.rsp"}.}
+
+\item{os_type}{A string identifying the operating-system type, defaulting to
+\code{.Platform$OS.type}.  Override to \code{"windows"} or \code{"unix"} in tests to
+exercise the Windows response-file branch without needing a Windows
+environment.}
 }
 \value{
 Invisibly, the string to embed in \code{Makevars} (either \verb{@path} on

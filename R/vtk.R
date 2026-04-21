@@ -65,6 +65,10 @@ LdFlags <- function() {
 #' @param path Path (relative to the package source root, i.e. where
 #'   `configure` runs) to the response file to write, e.g.
 #'   `"src/vtk_libs.rsp"`.
+#' @param os_type A string identifying the operating-system type, defaulting to
+#'   `.Platform$OS.type`.  Override to `"windows"` or `"unix"` in tests to
+#'   exercise the Windows response-file branch without needing a Windows
+#'   environment.
 #'
 #' @return Invisibly, the string to embed in `Makevars` (either `@path` on
 #'   Windows or the raw flags on other platforms).  The string is also written
@@ -73,9 +77,9 @@ LdFlags <- function() {
 #' rsp <- file.path(tempdir(), "vtk_libs.rsp")
 #' ref <- LdFlagsFile(rsp)
 #' @export
-LdFlagsFile <- function(path) {
+LdFlagsFile <- function(path, os_type = .Platform$OS.type) {
   flags <- read_vtk_conf()[["VTK_LIBS"]]
-  if (.Platform$OS.type == "windows") {
+  if (os_type == "windows") {
     ## On Windows the flags string can exceed the 8191-char cmd.exe limit.
     ## Write them to a response file and return the short @file reference.
     ## configure writes the file relative to the package root (e.g.
@@ -104,7 +108,12 @@ VtkVersion <- function() {
 
 # Internal helper -------------------------------------------------------
 
-read_vtk_conf <- function(path = NULL) {
+read_vtk_conf <- function(
+  path = NULL,
+  os_type = .Platform$OS.type,
+  sysname = Sys.info()[["sysname"]],
+  win_base_dir = NULL
+) {
   if (is.null(path)) {
     path <- system.file("vtk.conf", package = "rvtk", mustWork = TRUE)
   }
@@ -118,14 +127,18 @@ read_vtk_conf <- function(path = NULL) {
   ## On Windows the VTK headers and libs live under inst/windows/ inside the
   ## installed package.  Resolve them at runtime so the paths are always valid
   ## regardless of where the package was installed.
-  if (.Platform$OS.type == "windows" && !is.null(conf[["VTK_SUBDIR"]])) {
+  if (os_type == "windows" && !is.null(conf[["VTK_SUBDIR"]])) {
     subdir <- conf[["VTK_SUBDIR"]]
     lib_sfx <- conf[["VTK_SUFFIX"]]
-    base_dir <- system.file(
-      file.path("windows", subdir),
-      package = "rvtk",
-      mustWork = TRUE
-    )
+    if (is.null(win_base_dir)) {
+      base_dir <- system.file(
+        file.path("windows", subdir),
+        package = "rvtk",
+        mustWork = TRUE
+      )
+    } else {
+      base_dir <- win_base_dir
+    }
     base_dir <- normalizePath(base_dir, winslash = "/")
 
     ## Look for a versioned include sub-directory (e.g. vtk-9.5)
@@ -149,12 +162,12 @@ read_vtk_conf <- function(path = NULL) {
     )
     ## GNU ld (Linux) and MinGW (Windows) support --start-group/--end-group.
     ## Apple ld (macOS) does not; use -all_load instead.
-    if (Sys.info()[["sysname"]] == "Darwin") {
+    if (sysname == "Darwin") {
       conf[["VTK_LIBS"]] <- paste(
         sprintf('-L"%s"', lib_dir),
         paste0("-Wl,-all_load ", lib_flags)
       )
-    } else if (Sys.info()[["sysname"]] == "Windows") {
+    } else if (sysname == "Windows") {
       conf[["VTK_LIBS"]] <- paste(
         sprintf('-L"%s"', lib_dir),
         "-Wl,--start-group",

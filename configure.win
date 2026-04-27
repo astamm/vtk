@@ -76,6 +76,9 @@ if test "${vtk_found}" = "no" && command -v pacman > /dev/null 2>&1; then
         mingw-w64-x86_64-vtk; do
         if pacman -Q "${_pkg}" > /dev/null 2>&1; then
             echo "Found pacman package ${_pkg}; locating prefix ..."
+            ## Extract the precise version from pacman (e.g. "9.5.0-1" → "9.5.0").
+            _pacman_version="$(pacman -Q "${_pkg}" 2>/dev/null \
+                | awk '{print $2}' | cut -d- -f1)"
             ## Derive prefix from the first installed include file.
             _prefix="$(pacman -Ql "${_pkg}" 2>/dev/null \
                 | awk '/\/include\/vtk/{print $2; exit}' \
@@ -83,7 +86,11 @@ if test "${vtk_found}" = "no" && command -v pacman > /dev/null 2>&1; then
             if test -n "${_prefix}" && vtk_detect_from_prefix "${_prefix}"; then
                 vtk_build_flags "${_prefix}"
                 vtk_found="yes"
-                echo "  -> found VTK ${vtk_version_suffix} via pacman at ${_prefix}"
+                ## Use the version reported by pacman directly so vtk.conf is
+                ## always populated with a real X.Y.Z string, even when VTK
+                ## uses an unversioned include directory.
+                vtk_version="${_pacman_version}"
+                echo "  -> found VTK ${vtk_version} via pacman at ${_prefix}"
             else
                 echo "  -> pacman package found but VTK detection failed; continuing."
             fi
@@ -127,11 +134,13 @@ if test "${vtk_found}" = "no"; then
     exit 0
 fi
 
-## Determine version string.
-if test -n "${vtk_version_suffix}"; then
-    vtk_version="${vtk_version_suffix}.0"
-else
-    vtk_version="unknown"
+## Determine version string if not already set (pacman path sets it directly).
+if test -z "${vtk_version}"; then
+    if test -n "${vtk_version_suffix}"; then
+        vtk_version="${vtk_version_suffix}.0"
+    else
+        vtk_version="unknown"
+    fi
 fi
 
 # ---------------------------------------------------------------------------

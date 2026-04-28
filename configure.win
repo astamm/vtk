@@ -33,6 +33,7 @@ VTK_MIN_SUFFIX="$(echo "${VTK_MIN_VERSION}" | sed 's/\([0-9]*\)\.\([0-9]*\)\..*/
 ## appends -lgdi32 (required by VTK on Windows).
 vtk_build_flags() {
     _libdir="$1/lib"
+    vtk_bindir="$1/bin"
 
     ## Prefer pure static archives (exclude *.dll.a).
     _static_libs="$(find "${_libdir}" -maxdepth 1 -name "libvtk*.a" \
@@ -152,6 +153,7 @@ VTK_VERSION=${vtk_version}
 VTK_CPPFLAGS=${vtk_cppflags}
 VTK_LIBS=${vtk_libs}
 VTK_INCLUDE_DIR=${vtk_include_dir}
+VTK_BIN_DIR=${vtk_bindir}
 EOF
 
 echo "Written inst/vtk.conf (VTK ${vtk_version})"

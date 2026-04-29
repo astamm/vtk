@@ -39,5 +39,3 @@ SystemRequirements: On macOS and Linux, 'VTK' (>= 9.1.0) is used when already
 NeedsCompilation: no
 Suggests: 
     tinytest
-LinkingTo: 
-    cpp11

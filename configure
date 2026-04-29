@@ -12,7 +12,7 @@ VTK_MIN_SUFFIX="$(echo "${VTK_MIN_VERSION}" | sed 's/\([0-9]*\)\.\([0-9]*\)\..*/
 # ---------------------------------------------------------------------------
 # Shared detection helpers (vtk_detect_from_prefix + state variables)
 # ---------------------------------------------------------------------------
-. "$(dirname "$0")/tools/vtk-detect.sh"
+. tools/vtk-detect.sh
 
 # ---------------------------------------------------------------------------
 # Unix-specific build-flag helper

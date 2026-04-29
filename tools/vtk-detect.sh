@@ -54,6 +54,7 @@ vtk_detect_from_prefix() {
 vtk_found="no"
 vtk_version_suffix=""
 vtk_include_dir=""
+vtk_lib_dir=""
 vtk_cppflags=""
 vtk_libs=""
 vtk_version=""

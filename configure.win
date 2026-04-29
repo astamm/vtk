@@ -47,17 +47,14 @@ vtk_build_flags() {
             | sed 's|.*/lib\(.*\)\.dll\.a|-l\1|' | tr '\n' ' ')"
         _link_type="dynamic"
         # Replace _libdir with the directory containing the DLLs (which may be the same or different).
-        _bindir="$(dirname "$(find "${_libdir}" -maxdepth 1 -name "libvtk*.dll.a" -exec sh -c 'objdump -p "$1" | awk "/DLL Name/{print \$2; exit}"' sh {} \; 2>/dev/null | head -n1)")"
-        if test -n "${_bindir}"; then
-            vtk_bindir="${_bindir}"
-        else
-            echo "Warning: no DLL import libs found; dynamic linking may fail at runtime."
-            vtk_bindir="${_libdir}"
-        fi
+        _libdir="$(find "$1" -name "libvtk*.dll" 2>/dev/null \
+            | sed 's|/[^/]*$||' | sort -u | head -1)"
     fi
 
+    vtk_bin_dir="${_libdir}"
+
     vtk_cppflags="-I${vtk_include_dir}"
-    vtk_libs="-L${vtk_bindir} -Wl,--start-group ${_all_libs}-lgdi32 -Wl,--end-group"
+    vtk_libs="-L${_libdir} -Wl,--start-group ${_all_libs}-lgdi32 -Wl,--end-group"
     echo "  -> linking VTK (${_link_type})"
 }
 

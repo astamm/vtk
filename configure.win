@@ -28,34 +28,24 @@ VTK_MIN_SUFFIX="$(echo "${VTK_MIN_VERSION}" | sed 's/\([0-9]*\)\.\([0-9]*\)\..*/
 # ---------------------------------------------------------------------------
 
 ## vtk_build_flags LIB_PREFIX
-## Prefers static (.a) over dynamic import libs (.dll.a).
+## Enforces static (.a) over dynamic import libs (.dll.a).
 ## Wraps all libs in a linker group to handle circular dependencies;
 ## appends -lgdi32 (required by VTK on Windows).
 vtk_build_flags() {
     _libdir="$1/lib"
 
-    ## Prefer pure static archives (exclude *.dll.a).
+    ## Enforce pure static archives (exclude *.dll.a).
     _static_libs="$(find "${_libdir}" -maxdepth 1 -name "libvtk*.a" \
         ! -name "*.dll.a" 2>/dev/null \
         | sed 's|.*/lib\(.*\)\.a|-l\1|' | tr '\n' ' ')"
 
     if test -n "${_static_libs}"; then
         _all_libs="${_static_libs}"
-        _link_type="static"
-    else
-        _all_libs="$(find "${_libdir}" -maxdepth 1 -name "libvtk*.dll.a" 2>/dev/null \
-            | sed 's|.*/lib\(.*\)\.dll\.a|-l\1|' | tr '\n' ' ')"
-        _link_type="dynamic"
-        # Replace _libdir with the directory containing the DLLs (which may be the same or different).
-        #_libdir="$(find "$1" -name "libvtk*.dll" 2>/dev/null \
-        #    | sed 's|/[^/]*$||' | sort -u | head -1)"
+        vtk_found="yes"
+        vtk_cppflags="-I${vtk_include_dir}"
+        vtk_libs="-L${_libdir} -Wl,--start-group ${_all_libs}-lgdi32 -Wl,--end-group"
+        echo "  -> linking VTK (static)"
     fi
-
-    #vtk_bin_dir="${_libdir}"
-
-    vtk_cppflags="-I${vtk_include_dir}"
-    vtk_libs="-L${_libdir} -Wl,--start-group ${_all_libs}-lgdi32 -Wl,--end-group"
-    echo "  -> linking VTK (${_link_type})"
 }
 
 # ---------------------------------------------------------------------------
@@ -65,8 +55,11 @@ if test -n "${VTK_DIR}"; then
     echo "Checking VTK_DIR=${VTK_DIR} ..."
     if vtk_detect_from_prefix "${VTK_DIR}"; then
         vtk_build_flags "${VTK_DIR}"
-        vtk_found="yes"
-        echo "  -> found VTK ${vtk_version_suffix} in VTK_DIR"
+        if test "${vtk_found}" = "yes"; then
+            echo "  -> found VTK ${vtk_version_suffix} in VTK_DIR"
+        else
+            echo "  -> found VTK_DIR but no static libs; continuing."
+        fi
     else
         echo "  -> VTK_DIR: no usable VTK libs or version < ${VTK_MIN_VERSION}; continuing."
     fi
@@ -90,24 +83,19 @@ if test "${vtk_found}" = "no" && command -v pacman > /dev/null 2>&1; then
                 | sed 's|/include/vtk.*||')"
             if test -n "${_prefix}" && vtk_detect_from_prefix "${_prefix}"; then
                 vtk_build_flags "${_prefix}"
-                vtk_lib_dir="${_prefix}/bin"
-                vtk_found="yes"
-                ## Use the version reported by pacman directly so vtk.conf is
-                ## always populated with a real X.Y.Z string, even when VTK
-                ## uses an unversioned include directory.
-                vtk_version="${_pacman_version}"
-                echo "  -> found VTK ${vtk_version} via pacman at ${_prefix}"
+                if ${vtk_found} = "yes"; then
+                    ## Use the version reported by pacman directly so vtk.conf is
+                    ## always populated with a real X.Y.Z string, even when VTK
+                    ## uses an unversioned include directory.
+                    vtk_version="${_pacman_version}"
+                    echo "  -> found VTK ${vtk_version} via pacman at ${_prefix}"
+                fi
             else
                 echo "  -> pacman package found but VTK detection failed; continuing."
             fi
             break
         fi
     done
-    if test "${vtk_found}" = "no"; then
-        echo "Tip: install VTK via Rtools45 pacman to avoid downloading pre-built libs:"
-        echo "  pacman -S mingw-w64-ucrt-x86_64-vtk"
-        echo "  Then re-install the package."
-    fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -122,9 +110,12 @@ if test "${vtk_found}" = "no"; then
         /usr; do
         if test -d "${_base}" && vtk_detect_from_prefix "${_base}"; then
             vtk_build_flags "${_base}"
-            vtk_found="yes"
-            echo "Found VTK ${vtk_version_suffix} at ${_base}"
-            break
+            if test "${vtk_found}" = "yes"; then
+                echo "  -> found VTK ${vtk_version_suffix} at ${_base}"
+                break
+            else
+                echo "  -> found VTK at ${_base} but no static libs; continuing."
+            fi
         fi
     done
 fi
@@ -158,7 +149,6 @@ VTK_VERSION=${vtk_version}
 VTK_CPPFLAGS=${vtk_cppflags}
 VTK_LIBS=${vtk_libs}
 VTK_INCLUDE_DIR=${vtk_include_dir}
-VTK_BIN_DIR=${vtk_bindir}
 EOF
 
 echo "Written inst/vtk.conf (VTK ${vtk_version})"

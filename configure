@@ -1,7 +1,7 @@
 #!/bin/sh
 # configure -- macOS / Linux configuration for the rvtk R package.
-# Detects a system-installed VTK (>= 9.1.0) via Homebrew (macOS) or
-# pkg-config, then writes inst/vtk.conf so that rvtk::CppFlags() and
+# Detects a system-installed VTK (>= 9.1.0) via Homebrew (macOS) or common
+# system prefixes, then writes inst/vtk.conf so that rvtk::CppFlags() and
 # rvtk::LdFlags() return the correct flags for downstream packages.
 
 set -e
@@ -10,54 +10,13 @@ VTK_MIN_VERSION="9.1.0"
 VTK_MIN_SUFFIX="$(echo "${VTK_MIN_VERSION}" | sed 's/\([0-9]*\)\.\([0-9]*\)\..*/\1.\2/')"
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Shared detection helpers (vtk_detect_from_prefix + state variables)
 # ---------------------------------------------------------------------------
+. tools/vtk-detect.sh
 
-## vtk_detect_from_prefix PREFIX
-## Sets vtk_include_dir and vtk_version_suffix; returns 0 on success.
-vtk_detect_from_prefix() {
-    _prefix="$1"
-    _min="$VTK_MIN_SUFFIX"
-
-    ## Versioned directory (vtk-X.Y)
-    _vdir="$(find "${_prefix}/include" -maxdepth 1 -name "vtk-*" -type d 2>/dev/null \
-        | sort -V | tail -1)"
-    if test -n "${_vdir}"; then
-        _sfx="$(basename "${_vdir}" | sed 's/^vtk-//')"
-        if printf '%s\n%s\n' "${_min}" "${_sfx}" | sort -V | head -1 \
-                | grep -qx "${_min}"; then
-            vtk_version_suffix="${_sfx}"
-            vtk_include_dir="${_vdir}"
-            return 0
-        fi
-        return 1
-    fi
-
-    ## Unversioned directory (vtk/)
-    if test -d "${_prefix}/include/vtk"; then
-        _hdr="${_prefix}/include/vtk/vtkVersionQuick.h"
-        if test -f "${_hdr}"; then
-            _major="$(grep '#define VTK_MAJOR_VERSION' "${_hdr}" | awk '{print $3}')"
-            _minor="$(grep '#define VTK_MINOR_VERSION' "${_hdr}" | awk '{print $3}')"
-            if test -n "${_major}" && test -n "${_minor}"; then
-                _det="${_major}.${_minor}"
-                if printf '%s\n%s\n' "${_min}" "${_det}" | sort -V | head -1 \
-                        | grep -qx "${_min}"; then
-                    vtk_version_suffix=""
-                    vtk_include_dir="${_prefix}/include/vtk"
-                    return 0
-                fi
-                return 1
-            fi
-        fi
-        echo "WARNING: Could not read VTK version from ${_hdr}; proceeding." >&2
-        vtk_version_suffix=""
-        vtk_include_dir="${_prefix}/include/vtk"
-        return 0
-    fi
-
-    return 1
-}
+# ---------------------------------------------------------------------------
+# Unix-specific build-flag helper
+# ---------------------------------------------------------------------------
 
 ## vtk_build_flags LIB_PREFIX [RPATH]
 ## Populates vtk_cppflags and vtk_libs using vtk_version_suffix / vtk_include_dir.
@@ -87,13 +46,6 @@ vtk_build_flags() {
         vtk_libs="${vtk_libs} -Wl,-rpath,${_rpath}"
     fi
 }
-
-vtk_found="no"
-vtk_version_suffix=""
-vtk_include_dir=""
-vtk_cppflags=""
-vtk_libs=""
-vtk_version=""
 
 # ---------------------------------------------------------------------------
 # 0. User-supplied VTK_DIR (highest priority)

@@ -1,14 +1,155 @@
 #!/bin/sh
 # configure.win -- Windows configuration for the rvtk R package.
-# Calls tools/winlibs.R which downloads pre-built VTK static libraries and
-# writes inst/vtk.conf.  No elevated permissions are required; all files are
-# placed inside the package source tree.
+#
+# Detection order:
+#   0. VTK_DIR environment variable
+#   1. Rtools45 pacman (query only -- never installs automatically)
+#   2. Common Rtools45 / MSYS2 prefixes
+#   3. Download pre-built static libraries via tools/winlibs.R
+#
+# Static libraries (.a) are preferred; dynamic import libs (.dll.a) are also
+# accepted.  When dynamic linking is used, VTK DLLs must be locatable at
+# runtime -- rvtk's .onLoad() extends PATH to cover the package lib dir.
 
 set -e
 
 echo "--- rvtk: configuring for Windows ---"
 
-: "${R_HOME:=$(R RHOME)}"
-"${R_HOME}/bin/Rscript.exe" "tools/winlibs.R"
+VTK_MIN_VERSION="9.1.0"
+VTK_MIN_SUFFIX="$(echo "${VTK_MIN_VERSION}" | sed 's/\([0-9]*\)\.\([0-9]*\)\..*/\1.\2/')"
 
+# ---------------------------------------------------------------------------
+# Shared detection helpers.
+# ---------------------------------------------------------------------------
+. "$(dirname "$0")/tools/vtk-detect.sh"
+
+# ---------------------------------------------------------------------------
+# Windows-specific build-flag helper
+# ---------------------------------------------------------------------------
+
+## vtk_build_flags LIB_PREFIX
+## Enforces static (.a) over dynamic import libs (.dll.a).
+## Wraps all libs in a linker group to handle circular dependencies;
+## appends -lgdi32 (required by VTK on Windows).
+vtk_build_flags() {
+    _libdir="$1/lib"
+
+    ## Enforce pure static archives (exclude *.dll.a).
+    _static_libs="$(find "${_libdir}" -maxdepth 1 -name "libvtk*.a" \
+        ! -name "*.dll.a" 2>/dev/null \
+        | sed 's|.*/lib\(.*\)\.a|-l\1|' | tr '\n' ' ')"
+
+    if test -n "${_static_libs}"; then
+        _all_libs="${_static_libs}"
+        vtk_found="yes"
+        vtk_cppflags="-I${vtk_include_dir}"
+        vtk_libs="-L${_libdir} -Wl,--start-group ${_all_libs}-lgdi32 -Wl,--end-group"
+        echo "  -> linking VTK (static)"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# 0. User-supplied VTK_DIR
+# ---------------------------------------------------------------------------
+if test -n "${VTK_DIR}"; then
+    echo "Checking VTK_DIR=${VTK_DIR} ..."
+    if vtk_detect_from_prefix "${VTK_DIR}"; then
+        vtk_build_flags "${VTK_DIR}"
+        if test "${vtk_found}" = "yes"; then
+            echo "  -> found VTK ${vtk_version_suffix} in VTK_DIR"
+        else
+            echo "  -> found VTK_DIR but no static libs; continuing."
+        fi
+    else
+        echo "  -> VTK_DIR: no usable VTK libs or version < ${VTK_MIN_VERSION}; continuing."
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 1. Rtools45 pacman (query only -- never installs automatically)
+# ---------------------------------------------------------------------------
+if test "${vtk_found}" = "no" && command -v pacman > /dev/null 2>&1; then
+    for _pkg in \
+        mingw-w64-ucrt-x86_64-vtk \
+        mingw-w64-x86_64-vtk; do
+        if pacman -Q "${_pkg}" > /dev/null 2>&1; then
+            echo "Found pacman package ${_pkg}; locating prefix ..."
+            ## Extract the precise version from pacman (e.g. "9.5.0-1" → "9.5.0").
+            _pacman_version="$(pacman -Q "${_pkg}" 2>/dev/null \
+                | awk '{print $2}' | cut -d- -f1)"
+            ## Derive prefix from the first installed include file.
+            _prefix="$(pacman -Ql "${_pkg}" 2>/dev/null \
+                | awk '/\/include\/vtk/{print $2; exit}' \
+                | sed 's|/include/vtk.*||')"
+            if test -n "${_prefix}" && vtk_detect_from_prefix "${_prefix}"; then
+                vtk_build_flags "${_prefix}"
+                if ${vtk_found} = "yes"; then
+                    ## Use the version reported by pacman directly so vtk.conf is
+                    ## always populated with a real X.Y.Z string, even when VTK
+                    ## uses an unversioned include directory.
+                    vtk_version="${_pacman_version}"
+                    echo "  -> found VTK ${vtk_version} via pacman at ${_prefix}"
+                fi
+            else
+                echo "  -> pacman package found but VTK detection failed; continuing."
+            fi
+            break
+        fi
+    done
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Common Rtools45 / MSYS2 prefixes
+# ---------------------------------------------------------------------------
+if test "${vtk_found}" = "no"; then
+    for _base in \
+        /x86_64-w64-mingw32.static.posix \
+        /ucrt64 \
+        /mingw64 \
+        /usr/local \
+        /usr; do
+        if test -d "${_base}" && vtk_detect_from_prefix "${_base}"; then
+            vtk_build_flags "${_base}"
+            if test "${vtk_found}" = "yes"; then
+                echo "  -> found VTK ${vtk_version_suffix} at ${_base}"
+                break
+            else
+                echo "  -> found VTK at ${_base} but no static libs; continuing."
+            fi
+        fi
+    done
+fi
+
+# ---------------------------------------------------------------------------
+# 3. Fallback: download pre-built static libraries
+# ---------------------------------------------------------------------------
+if test "${vtk_found}" = "no"; then
+    echo "No system VTK found. Downloading pre-built static libraries..."
+    : "${R_HOME:=$(R RHOME)}"
+    "${R_HOME}/bin/Rscript.exe" "tools/winlibs.R"
+    echo "--- rvtk: Windows configuration complete (pre-built) ---"
+    exit 0
+fi
+
+## Determine version string if not already set (pacman path sets it directly).
+if test -z "${vtk_version}"; then
+    if test -n "${vtk_version_suffix}"; then
+        vtk_version="${vtk_version_suffix}.0"
+    else
+        vtk_version="unknown"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Write inst/vtk.conf (same format as configure on Unix)
+# ---------------------------------------------------------------------------
+mkdir -p inst
+cat > inst/vtk.conf << EOF
+VTK_VERSION=${vtk_version}
+VTK_CPPFLAGS=${vtk_cppflags}
+VTK_LIBS=${vtk_libs}
+VTK_INCLUDE_DIR=${vtk_include_dir}
+EOF
+
+echo "Written inst/vtk.conf (VTK ${vtk_version})"
 echo "--- rvtk: Windows configuration complete ---"

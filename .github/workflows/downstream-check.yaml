@@ -142,13 +142,14 @@ jobs:
         run: echo "VTK_DIR=$HOME/vtk-shared-install" >> "$GITHUB_ENV"
 
       # ── 4. Install R packages needed by the build ─────────────────────────────
-      # r-lib/actions/setup-r-dependencies handles library paths correctly on
-      # all platforms (including Ubuntu where plain install.packages() and pak
-      # may write to paths not visible in subsequent steps).
+      # working-directory: rvtk makes setup-r-dependencies read the rvtk
+      # DESCRIPTION and install rvtk from local source (no CRAN lookup needed).
+      # The extra-packages are installed into the same managed library path,
+      # which persists correctly across all subsequent steps on every platform.
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          working-directory: rvtk
           extra-packages: |
-            any::remotes
             any::rcmdcheck
             any::usethis
             any::withr
@@ -163,6 +164,8 @@ jobs:
       # built-shared via VTK_DIR, or falls back to downloading prebuilt-static)
       # and writes inst/vtk.conf.  Downstream package configuration then reads
       # those flags by calling rvtk::CppFlags() / rvtk::LdFlagsFile().
+      # setup-r-dependencies above already installed rvtk from local source,
+      # but we reinstall here to ensure it ran configure with the right VTK_DIR.
       - name: Install rvtk from source
         shell: Rscript {0}
         working-directory: rvtk

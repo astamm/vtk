@@ -7,9 +7,7 @@
 #   2. Common Rtools45 / MSYS2 prefixes
 #   3. Download pre-built static libraries via tools/winlibs.R
 #
-# Static libraries (.a) are preferred; dynamic import libs (.dll.a) are also
-# accepted.  When dynamic linking is used, VTK DLLs must be locatable at
-# runtime -- rvtk's .onLoad() extends PATH to cover the package lib dir.
+# Static libraries (.a) are required.
 
 set -e
 

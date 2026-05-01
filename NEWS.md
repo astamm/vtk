@@ -15,10 +15,26 @@
   explicitly excluded. A system VTK that provides only shared libraries is
   therefore skipped and the pre-built fallback is used instead.
 
-* **Shared VTK detection helper** (`tools/vtk-detect.sh`). The
-  prefix-detection logic is now in a single sourced shell script used by both
-  `configure` (macOS/Linux) and `configure.win` (Windows), ensuring consistent
-  versioned-directory detection on all platforms.
+* **Windows shared-DLL support** (`configure.win`, `tools/winlibs.R`,
+  `R/vtk.R`). Windows now fully supports shared VTK libraries:
+  - System installations (via `VTK_DIR`, pacman, or MSYS2 prefixes) that
+    provide only `.dll.a` import libs are now accepted; previously they
+    caused a silent fall-through to the pre-built static download.
+  - A new pre-built shared-DLL build (`vtk-X.Y.Z-shared-posix-x64.zip`) is
+    available as an alternative to the existing static build.  Select it by
+    setting `VTK_LINK_TYPE=shared` before installing **rvtk**.
+  - VTK DLLs are installed to `inst/libs/x64/`. R calls
+    `AddDllDirectory()` on every loaded package's `libs/x64/` subdirectory,
+    making the DLLs visible to all downstream packages that declare
+    `Imports: rvtk` without any PATH manipulation.
+  - The shared-DLL release artifact is built with the same
+    `x86_64-w64-mingw32.static.posix` toolchain and
+    `-static-libgcc -static-libstdc++`, so the resulting DLLs have no
+    dependency on external MSYS2 runtime DLLs.
+
+* **`build-vtk-libs.yml`**: new `build-windows-shared` CI job produces
+  `vtk-X.Y.Z-shared-posix-x64.zip` and publishes it alongside the existing
+  static archive in each GitHub release.
 
 ### Bug fixes
 

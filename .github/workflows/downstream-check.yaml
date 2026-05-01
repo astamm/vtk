@@ -44,6 +44,7 @@ jobs:
           # ── Windows ────────────────────────────────────────────────────────────
           - {os: windows-latest, r: 'release', vtk: 'system'}
           - {os: windows-latest, r: 'release', vtk: 'prebuilt-static'}
+          - {os: windows-latest, r: 'release', vtk: 'prebuilt-shared'}
           # ── Linux ──────────────────────────────────────────────────────────────
           - {os: ubuntu-latest,  r: 'release', vtk: 'system'}
           - {os: ubuntu-latest,  r: 'release', vtk: 'prebuilt-static'}
@@ -170,6 +171,10 @@ jobs:
       - name: Install rvtk from source
         shell: Rscript {0}
         working-directory: rvtk
+        env:
+          # For the prebuilt-shared strategy, tell winlibs.R to download the
+          # shared-DLL build instead of the default static build.
+          VTK_LINK_TYPE: ${{ (matrix.config.vtk == 'prebuilt-shared') && 'shared' || '' }}
         run: pak::local_install(upgrade = FALSE)
 
       # ── 6. Scaffold the downstream package with usethis ───────────────────────

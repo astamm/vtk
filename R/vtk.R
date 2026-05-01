@@ -160,7 +160,11 @@ read_vtk_conf <- function(
   ## regardless of where the package was installed.
   if (os_type == "windows" && !is.null(conf[["VTK_SUBDIR"]])) {
     subdir <- conf[["VTK_SUBDIR"]]
-    lib_sfx <- conf[["VTK_SUFFIX"]]
+    link_type <- if (!is.null(conf[["VTK_LINK"]])) {
+      conf[["VTK_LINK"]]
+    } else {
+      "static"
+    }
     if (is.null(win_base_dir)) {
       base_dir <- system.file(
         file.path("windows", subdir),
@@ -184,38 +188,43 @@ read_vtk_conf <- function(
 
     lib_dir <- file.path(base_dir, "lib")
     conf[["VTK_CPPFLAGS"]] <- sprintf('-I"%s"', inc_dir)
-    ## Discover every .a present and wrap in a linker group so that the
-    ## linker resolves all transitive dependencies regardless of ordering.
-    all_libs <- list.files(lib_dir, pattern = "\\.a$", full.names = FALSE)
-    lib_flags <- paste(
-      sprintf("-l%s", sub("\\.a$", "", sub("^lib", "", all_libs))),
-      collapse = " "
-    )
-    ## GNU ld (Linux) and MinGW (Windows) support --start-group/--end-group.
-    ## Apple ld (macOS) does not; use -all_load instead.
-    if (sysname == "Darwin") {
-      conf[["VTK_LIBS"]] <- paste(
-        sprintf('-L"%s"', lib_dir),
-        paste0("-Wl,-all_load ", lib_flags)
+
+    if (identical(link_type, "shared")) {
+      ## Shared build: link against .dll.a import libs.  The VTK DLLs live in
+      ## inst/libs/x64/ and R's loader (AddDllDirectory) adds that directory to
+      ## the DLL search path automatically when rvtk is loaded, so downstream
+      ## packages do not need to do anything special.
+      all_libs <- list.files(
+        lib_dir,
+        pattern = "\\.dll\\.a$",
+        full.names = FALSE
       )
-    } else if (sysname == "Windows") {
+      lib_flags <- paste(
+        sprintf("-l%s", sub("\\.dll\\.a$", "", sub("^lib", "", all_libs))),
+        collapse = " "
+      )
       conf[["VTK_LIBS"]] <- paste(
         sprintf('-L"%s"', lib_dir),
-        "-Wl,--start-group",
         lib_flags,
-        ## Windows system libraries required by VTK (static.posix build):
-        ## gdi32 - GDI functions used by vtkWin32OutputWindow.
-        ## POSIX threading / libc symbols (nanosleep, ftime64, fseeko64, ...)
-        ## are resolved automatically by the x86_64-w64-mingw32.static.posix
-        ## toolchain's default link libraries; no extra -l flags needed.
-        "-lgdi32",
-        "-Wl,--end-group"
+        "-lgdi32"
       )
     } else {
+      ## Static build: wrap in a linker group to resolve circular dependencies.
+      ## Exclude any .dll.a import libs that might co-exist with .a archives.
+      all_libs <- list.files(lib_dir, pattern = "\\.a$", full.names = FALSE)
+      all_libs <- all_libs[!grepl("\\.dll\\.a$", all_libs)]
+      lib_flags <- paste(
+        sprintf("-l%s", sub("\\.a$", "", sub("^lib", "", all_libs))),
+        collapse = " "
+      )
       conf[["VTK_LIBS"]] <- paste(
         sprintf('-L"%s"', lib_dir),
         "-Wl,--start-group",
         lib_flags,
+        ## gdi32: GDI functions used by vtkWin32OutputWindow.
+        ## POSIX threading / libc symbols are resolved automatically by the
+        ## x86_64-w64-mingw32.static.posix toolchain's default link libraries.
+        "-lgdi32",
         "-Wl,--end-group"
       )
     }

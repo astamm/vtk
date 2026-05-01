@@ -60,21 +60,80 @@ The `configure.win` script also tries each strategy in order:
 
 ### Platform and VTK-strategy compatibility
 
-| Platform | VTK strategy                           | Supported       |
-|----------|----------------------------------------|-----------------|
-| macOS    | System (Homebrew, shared)              | ✔               |
-| macOS    | Pre-built static (automatic fallback)  | ✔               |
-| macOS    | Custom `VTK_DIR` (static or shared)    | ✔               |
-| Linux    | System (apt / pkg-config, shared)      | ✔               |
-| Linux    | Pre-built static (automatic fallback)  | ✔               |
-| Linux    | Custom `VTK_DIR` (static or shared)    | ✔               |
-| Windows  | Pre-built static (automatic fallback)  | ✔               |
-| Windows  | Custom `VTK_DIR` with static `.a` libs | ✔               |
-| Windows  | pacman / MSYS2 with static `.a` libs   | ✔               |
-| Windows  | Shared VTK (DLL-based, any source)     | ✘ not supported |
+| Platform | VTK strategy                                            | Supported |
+|----------|---------------------------------------------------------|-----------|
+| macOS    | System (Homebrew, shared)                               | ✔         |
+| macOS    | Pre-built static (automatic fallback)                   | ✔         |
+| macOS    | Custom `VTK_DIR` (static or shared)                     | ✔         |
+| Linux    | System (apt / pkg-config, shared)                       | ✔         |
+| Linux    | Pre-built static (automatic fallback)                   | ✔         |
+| Linux    | Custom `VTK_DIR` (static or shared)                     | ✔         |
+| Windows  | Pre-built static (automatic fallback)                   | ✔         |
+| Windows  | Pre-built shared DLLs (`VTK_LINK_TYPE=shared`)          | ✔         |
+| Windows  | Custom `VTK_DIR` with static `.a` libs                  | ✔         |
+| Windows  | Custom `VTK_DIR` / pacman / MSYS2 with static `.a` libs | ✔         |
+| Windows  | Custom `VTK_DIR` / pacman / MSYS2 with shared libs only | ✔         |
+
+### Windows: choosing static vs. shared on the pre-built fallback
+
+By default the pre-built fallback downloads static `.a` libraries, which
+is the right choice for CRAN packages (no DLL dependencies for end
+users, no run-time path configuration).
+
+To opt into the pre-built shared-DLL build instead, set the
+`VTK_LINK_TYPE` environment variable **before** installing **rvtk**:
+
+``` sh
+VTK_LINK_TYPE=shared Rscript -e 'pak::pak("astamm/rvtk")'
+```
+
+or in an R session:
+
+``` r
+Sys.setenv(VTK_LINK_TYPE = "shared")
+pak::pak("astamm/rvtk")
+```
+
+When `VTK_LINK_TYPE=shared` the installer downloads
+`vtk-X.Y.Z-shared-posix-x64.zip`, places the DLLs in `inst/libs/x64/`,
+and records `VTK_LINK=shared` in `vtk.conf`. R automatically adds
+`libs/x64/` to the Windows DLL search path when rvtk is loaded, so
+downstream packages require no extra configuration.
 
 Configuration results are stored in `inst/vtk.conf` and read at run time
 by `CppFlags()`, `LdFlags()`, and `VtkVersion()`.
+
+## Important notes for downstream package developers using Windows shared VTK
+
+When **rvtk** is installed with `VTK_LINK_TYPE=shared` (or when a system
+installation with only shared libs is detected), downstream packages
+link against VTK `.dll.a` import libraries and load the VTK DLLs from
+rvtk’s `inst/libs/x64/` at run time.
+
+This has two implications that downstream package authors should
+communicate to their users:
+
+1.  **rvtk and the downstream package must be kept in sync.** The
+    downstream package is compiled against the specific VTK version (and
+    DLL ABI) shipped with the rvtk version installed at compile time. If
+    rvtk is later updated to a new VTK version (e.g. 9.5 → 9.6), the
+    downstream package must be **recompiled** against the new rvtk to
+    match the new DLL names (e.g. `vtkCommonCore-9.6.dll`). Binary
+    packages compiled against an older rvtk will fail to load.
+
+2.  **DLL footprint will grow with VTK module requirements.** The
+    current pre-built DLL set contains only the minimal modules needed
+    by the rvtk package itself. Downstream packages that require
+    additional VTK modules (e.g. `vtkRenderingOpenGL2`,
+    `vtkFiltersCore`) must request that those modules be added to the
+    pre-built DLL set by opening an issue on the rvtk repository. Each
+    additional module increases the size of `inst/libs/x64/` for **all**
+    downstream packages, which affects install time and CRAN size
+    limits.
+
+> For CRAN submissions, the static pre-built build (default) is
+> recommended because it has no run-time coupling to rvtk’s DLLs and is
+> self-contained within the downstream package binary.
 
 ## Installation
 

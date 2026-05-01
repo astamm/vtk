@@ -18,15 +18,18 @@ Description: Provides pre-compiled static 'VTK' libraries and headers so that
     suitable system installation is found on macOS or Linux, pre-built static
     libraries are downloaded automatically from the package's GitHub releases.
     On Windows the package tries 'VTK_DIR', then 'Rtools45' 'pacman', then
-    common 'MSYS2' prefixes (static '.a' libraries only; 'DLL'-backed import
-    libraries are skipped), and finally falls back to downloading pre-built
-    static libraries compiled with the 'Rtools45'
-    'x86_64-w64-mingw32.static.posix' toolchain. Note that on Windows the
-    modules 'VTK_IONetCDF', 'VTK_IOHDF', 'VTK_GeovisCore', and
-    'VTK_RenderingCore' are disabled because 'netcdf' and 'libproj' are not
-    available in the 'Rtools45' 'static.posix' sysroot. Downstream packages
-    can declare 'Imports: rvtk' and obtain the correct compiler and linker
-    flags at install time via rvtk::CppFlags() and rvtk::LdFlagsFile().
+    common 'MSYS2' prefixes, accepting both static ('.a') and shared
+    ('.dll.a' import libs + DLLs) installations. When shared libraries are
+    used, the VTK DLLs are copied into 'inst/libs/x64/' so that R adds them
+    to the Windows DLL search path automatically on package load. The
+    pre-built fallback downloads static libraries by default; set
+    'VTK_LINK_TYPE=shared' before installation to download the DLL build
+    instead. Note that on Windows the modules 'VTK_IONetCDF', 'VTK_IOHDF',
+    'VTK_GeovisCore', and 'VTK_RenderingCore' are disabled because 'netcdf'
+    and 'libproj' are not available in the 'Rtools45' 'static.posix' sysroot.
+    Downstream packages can declare 'Imports: rvtk' and obtain the correct
+    compiler and linker flags at install time via rvtk::CppFlags() and
+    rvtk::LdFlagsFile().
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

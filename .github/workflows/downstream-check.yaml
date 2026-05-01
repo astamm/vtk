@@ -169,7 +169,7 @@ jobs:
       - name: Install rvtk from source
         shell: Rscript {0}
         working-directory: rvtk
-        run: remotes::install_local(".", force = TRUE, build = FALSE)
+        run: pak::local_install(upgrade = FALSE)
 
       # ── 6. Scaffold the downstream package with usethis ───────────────────────
       #

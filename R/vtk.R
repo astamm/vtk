@@ -124,6 +124,37 @@ read_vtk_conf <- function(
   keys <- vapply(parsed, `[[`, character(1), 1)
   conf <- stats::setNames(as.list(vals), keys)
 
+  ## On Unix with pre-built static libraries, headers and libs live under
+  ## inst/prebuilt/ inside the installed package.  Resolve them at runtime.
+  if (os_type != "windows" && identical(conf[["VTK_PREBUILT"]], "yes")) {
+    base_dir <- system.file("prebuilt", package = "rvtk", mustWork = TRUE)
+    base_dir <- normalizePath(base_dir, winslash = "/")
+
+    inc_root <- file.path(base_dir, "include")
+    vdirs <- list.dirs(inc_root, recursive = FALSE, full.names = FALSE)
+    vdirs <- grep("^vtk-[0-9]", vdirs, value = TRUE)
+    if (length(vdirs) > 0L) {
+      inc_dir <- file.path(inc_root, vdirs[length(vdirs)])
+    } else {
+      inc_dir <- file.path(inc_root, "vtk")
+    }
+
+    lib_dir <- file.path(base_dir, "lib")
+    conf[["VTK_CPPFLAGS"]] <- sprintf("-isystem%s", inc_dir)
+
+    all_libs_full <- list.files(lib_dir, pattern = "\\.a$", full.names = TRUE)
+    lib_args <- paste(all_libs_full, collapse = " ")
+    if (sysname == "Darwin") {
+      conf[["VTK_LIBS"]] <- paste("-Wl,-all_load", lib_args)
+    } else {
+      conf[["VTK_LIBS"]] <- paste(
+        "-Wl,--start-group",
+        lib_args,
+        "-Wl,--end-group"
+      )
+    }
+  }
+
   ## On Windows the VTK headers and libs live under inst/windows/ inside the
   ## installed package.  Resolve them at runtime so the paths are always valid
   ## regardless of where the package was installed.

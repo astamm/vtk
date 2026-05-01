@@ -156,7 +156,12 @@ if test "${vtk_found}" = "no"; then
     esac
 
     _url="${VTK_PREBUILT_BASE_URL}/${_tarball}"
-    _prebuilt_dir="$(pwd)/vtk-prebuilt"
+
+    # Extract into inst/prebuilt/ so that headers and static libs become part
+    # of the installed package.  Storing absolute $(pwd)-relative paths in
+    # vtk.conf is unsafe: R CMD build creates a tarball in a temp directory,
+    # so $(pwd) at configure time would be deleted after installation.
+    _prebuilt_dir="inst/prebuilt"
 
     echo "  Downloading ${_url} ..."
     mkdir -p "${_prebuilt_dir}"
@@ -180,10 +185,26 @@ if test "${vtk_found}" = "no"; then
     echo "  Extracted to ${_prebuilt_dir}"
 
     if vtk_detect_from_prefix "${_prebuilt_dir}"; then
-        vtk_build_flags "${_prebuilt_dir}"
-        vtk_found="yes"
         vtk_version="${VTK_PREBUILT_VERSION}"
+        if test -n "${vtk_version_suffix}"; then
+            _sfx="-${vtk_version_suffix}"
+        else
+            _sfx=""
+        fi
         echo "  -> using pre-built VTK ${VTK_PREBUILT_VERSION}"
+
+        # Write symbolic vtk.conf.  Actual include/lib paths are resolved at
+        # runtime by rvtk::read_vtk_conf() via system.file("prebuilt", ...).
+        mkdir -p inst
+        cat > inst/vtk.conf << CONF
+VTK_VERSION=${vtk_version}
+VTK_SUFFIX=${_sfx}
+VTK_PREBUILT=yes
+CONF
+        echo "Written inst/vtk.conf (pre-built; paths resolved at runtime)"
+        echo "  VTK_VERSION=${vtk_version}"
+        echo "  VTK_SUFFIX=${_sfx}"
+        exit 0
     else
         echo "ERROR: Pre-built VTK archive layout not recognised at ${_prebuilt_dir}" >&2
         exit 1

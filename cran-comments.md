@@ -1,3 +1,53 @@
+## Submission (v0.1.3)
+
+This is a new submission adding Windows VTK discovery and fixing a path bug
+for pre-built static libraries on macOS and Linux.
+
+### Changes since v0.1.2
+
+1. **`configure.win` rewritten** — Windows now tries `VTK_DIR`, Rtools45
+   `pacman`, and common MSYS2 prefixes before falling back to the pre-built
+   static libraries. Only static `.a` libraries are used; DLL-backed
+   `.dll.a` import libraries are skipped. Shared VTK on Windows is not
+   supported (see platform compatibility table in README).
+
+2. **`tools/vtk-detect.sh` added** — shared VTK prefix-detection helper
+   sourced by both `configure` (macOS/Linux) and `configure.win` (Windows).
+
+3. **Pre-built static path bug fixed** (macOS/Linux) — the pre-built archive
+   is now extracted to `inst/prebuilt/` so headers and libs ship inside the
+   installed package. Paths are resolved at run time via `system.file()`,
+   matching the Windows approach and surviving `R CMD build` temp-dir cycles.
+
+## R CMD check results
+
+0 errors | 0 warnings | 1 note
+
+* This is a new submission.
+
+## Notes
+
+* The package downloads pre-built VTK 9.5.2 static libraries at install time
+  from <https://github.com/astamm/rvtk/releases/tag/v9.5.2> in two cases:
+  (a) always on Windows when no static `.a` libraries are found via `VTK_DIR`,
+  `pacman`, or MSYS2 prefixes, and (b) on macOS/Linux when no suitable system
+  VTK installation is detected. This follows the established pattern used by
+  packages such as 'curl', 'openssl', and 'rwinlib'-style packages.
+* Pre-built binaries are provided for Windows ('Rtools45' static.posix x64),
+  macOS arm64, macOS x86_64, and Linux x86_64. They are built reproducibly via
+  GitHub Actions from the official VTK 9.5.2 source tarball.
+* No compiled code is included in the package itself (`NeedsCompilation: no`);
+  all compilation happens either via the system VTK or the pre-built archives.
+
+## Downstream usage
+
+Downstream packages declare `Imports: rvtk` and use `rvtk::CppFlags()` /
+`rvtk::LdFlagsFile()` in their `configure` / `configure.win` scripts to obtain
+the correct compiler and linker flags for the detected or downloaded VTK
+installation.
+
+---
+
 ## Re-submission (v0.1.2)
 
 This is a re-submission addressing all points raised by the CRAN reviewer on

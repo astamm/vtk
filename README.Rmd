@@ -27,27 +27,55 @@ on the current machine.
 
 ## How VTK is located
 
-On macOS and Linux the package runs a `configure` script at install time that
-tries each of the following strategies in order, stopping as soon as one
+### macOS and Linux
+
+The `configure` script tries each strategy in order, stopping as soon as one
 succeeds:
 
 1. The environment variable `VTK_DIR` (path to a VTK build or install tree).
-2. [Homebrew](https://brew.sh/) (`brew --prefix vtk`).
+2. [Homebrew](https://brew.sh/) (`brew --prefix vtk`) — macOS only.
 3. `pkg-config` (`vtk-9.5`, `vtk-9.4`, …, `vtk-9.1`).
-4. Common system prefixes (`/usr/local`, `/usr`, `/opt/local`).
+4. Well-known system prefixes (`/usr`, `/usr/local`) — Linux only.
 5. Download pre-built static libraries from
-   <https://github.com/astamm/rvtk/releases>.
+   <https://github.com/astamm/rvtk/releases> as a fallback.
 
-On Windows, pre-built static libraries (built with the
-`x86_64-w64-mingw32.static.posix` toolchain bundled in Rtools45) are always
-downloaded automatically from the same URL.
+### Windows
 
-> **Windows limitation:** The Rtools45 `static.posix` sysroot does not
-> provide `netcdf` or `libproj`. Consequently, the following VTK modules are
-> **disabled** in the Windows pre-built libraries: `VTK_IONetCDF`,
+The `configure.win` script also tries each strategy in order:
+
+1. The environment variable `VTK_DIR`.
+2. Rtools45 `pacman` (queries installed packages; never installs automatically).
+3. Common Rtools45 / MSYS2 prefixes
+   (`/x86_64-w64-mingw32.static.posix`, `/ucrt64`, `/mingw64`, …).
+4. Download pre-built static libraries built with the
+   `x86_64-w64-mingw32.static.posix` toolchain from
+   <https://github.com/astamm/rvtk/releases> as a fallback.
+
+> **Windows — static libs only.** Only pure static archives (`.a`) are used
+> on Windows; DLL-backed import libraries (`.dll.a`) are explicitly excluded.
+> If a system or pacman-installed VTK provides only shared libraries the
+> script falls through to the pre-built static fallback automatically.
+
+> **Windows — disabled modules.** The Rtools45 `static.posix` sysroot does
+> not provide `netcdf` or `libproj`. Consequently, the following VTK modules
+> are **disabled** in the Windows pre-built libraries: `VTK_IONetCDF`,
 > `VTK_IOHDF`, `VTK_GeovisCore`, `VTK_RenderingCore`. Downstream packages
-> that require any of these modules cannot currently be built on Windows with
-> the pre-built libraries supplied by **rvtk**.
+> that require any of these modules cannot currently be built on Windows.
+
+### Platform and VTK-strategy compatibility
+
+| Platform | VTK strategy | Supported |
+|---|---|---|
+| macOS | System (Homebrew, shared) | ✔ |
+| macOS | Pre-built static (automatic fallback) | ✔ |
+| macOS | Custom `VTK_DIR` (static or shared) | ✔ |
+| Linux | System (apt / pkg-config, shared) | ✔ |
+| Linux | Pre-built static (automatic fallback) | ✔ |
+| Linux | Custom `VTK_DIR` (static or shared) | ✔ |
+| Windows | Pre-built static (automatic fallback) | ✔ |
+| Windows | Custom `VTK_DIR` with static `.a` libs | ✔ |
+| Windows | pacman / MSYS2 with static `.a` libs | ✔ |
+| Windows | Shared VTK (DLL-based, any source) | ✘ not supported |
 
 Configuration results are stored in `inst/vtk.conf` and read at run time by
 `CppFlags()`, `LdFlags()`, and `VtkVersion()`.

@@ -1,3 +1,44 @@
+# rvtk 0.1.3
+
+### New features
+
+* **Windows VTK discovery** (`configure.win` rewritten). The package now
+  searches for a system VTK installation on Windows before falling back to the
+  pre-built static libraries. Detection order:
+  1. `VTK_DIR` environment variable.
+  2. Rtools45 `pacman` (queries installed packages; never installs
+     automatically).
+  3. Common Rtools45 / MSYS2 prefixes (`/x86_64-w64-mingw32.static.posix`,
+     `/ucrt64`, `/mingw64`, …).
+  4. Automatic download of pre-built static libraries (unchanged fallback).
+  Only static `.a` archives are used; DLL-backed `.dll.a` import libraries are
+  explicitly excluded. A system VTK that provides only shared libraries is
+  therefore skipped and the pre-built fallback is used instead.
+
+* **Shared VTK detection helper** (`tools/vtk-detect.sh`). The
+  prefix-detection logic is now in a single sourced shell script used by both
+  `configure` (macOS/Linux) and `configure.win` (Windows), ensuring consistent
+  versioned-directory detection on all platforms.
+
+### Bug fixes
+
+* **Unix pre-built static libraries survive `R CMD build`** (`configure`,
+  `R/vtk.R`, `cleanup`). Previously the pre-built archive was extracted to
+  `$(pwd)/vtk-prebuilt/` at configure time; because `pak` / `R CMD build`
+  creates a source tarball in a temporary directory, these paths became
+  dangling after installation. The archive is now extracted to
+  `inst/prebuilt/` so that headers and static libraries ship inside the
+  installed package. `read_vtk_conf()` resolves the actual paths at run time
+  via `system.file("prebuilt", package = "rvtk")`, mirroring the approach
+  already used for Windows.
+
+### Internal
+
+* New CI workflow (`.github/workflows/downstream-check.yaml`) builds and
+  checks a minimal downstream package against rvtk across all supported
+  platform × VTK-strategy combinations (system, pre-built static, built
+  shared).
+
 # rvtk 0.1.2
 
 Re-submission addressing CRAN reviewer feedback on v0.1.1.

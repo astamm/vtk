@@ -142,13 +142,17 @@ jobs:
         run: echo "VTK_DIR=$HOME/vtk-shared-install" >> "$GITHUB_ENV"
 
       # ── 4. Install R packages needed by the build ─────────────────────────────
+      # Use pak (pre-configured by setup-r) rather than install.packages() so
+      # that packages land in the managed library path on all platforms,
+      # including Ubuntu where install.packages() writes to ~/.R/… which is
+      # not always visible to subsequent Rscript {0} steps.
       - name: Install R build dependencies
         shell: Rscript {0}
         run: |
-          install.packages(
+          pak::pkg_install(
             c("remotes", "rcmdcheck", "usethis", "withr", "cpp11",
               "roxygen2", "devtools", "decor"),
-            repos = "https://cloud.r-project.org"
+            ask = FALSE
           )
 
       # ── 5. Install rvtk from the checked-out source ───────────────────────────

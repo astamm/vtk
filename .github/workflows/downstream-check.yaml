@@ -288,16 +288,36 @@ jobs:
           # ---- .Rbuildignore additions ----------------------------------
           printf '^src/Makevars$\n^src/vtk_libs\.rsp$\n' >> "$PKG/.Rbuildignore"
 
-      # ── 8. Generate NAMESPACE and man/ from roxygen tags ─────────────────────
+      # ── 8. Pre-generate src/Makevars so devtools::document() can compile ─────
       #
-      # Run devtools::document() only after src/Makevars.in and the configure
-      # scripts are in place, so the package tree is complete before roxygen2
-      # tries to load it.
+      # devtools::document() calls pkgload::load_all() which compiles the C++
+      # sources.  Without src/Makevars the compiler sees no PKG_CPPFLAGS and
+      # fails to find VTK headers with prebuilt-static (whose headers are not
+      # on any default search path, unlike a Homebrew system install).
+      # We replicate what the configure script does by calling rvtk directly.
+      - name: Pre-generate src/Makevars for downstream package
+        shell: Rscript {0}
+        env:
+          VTK_DIR: ${{ env.VTK_DIR }}
+        run: |
+          pkg <- Sys.getenv("PKG_DIR")
+          rsp <- file.path(pkg, "src", "vtk_libs.rsp")
+          cppflags <- rvtk::CppFlags()
+          vtk_libs <- rvtk::LdFlagsFile(rsp)
+          template <- readLines(file.path(pkg, "src", "Makevars.in"))
+          makevars  <- gsub("@VTK_CPPFLAGS@", cppflags,
+                       gsub("@VTK_LIBS@",     vtk_libs, template))
+          writeLines(makevars, file.path(pkg, "src", "Makevars"))
+
+      # ── 9. Generate NAMESPACE and man/ from roxygen tags ─────────────────────
+      #
+      # src/Makevars now exists, so pkgload::load_all() inside
+      # devtools::document() can compile the C++ sources successfully.
       - name: Document downstream package
         shell: Rscript {0}
         run: devtools::document(Sys.getenv("PKG_DIR"))
 
-      # ── 9. R CMD check ────────────────────────────────────────────────────────
+      # ── 10. R CMD check ───────────────────────────────────────────────────────
       - name: Check downstream package
         shell: Rscript {0}
         env:

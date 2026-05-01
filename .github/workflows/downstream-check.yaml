@@ -91,7 +91,7 @@ jobs:
         with:
           path: ~/vtk-shared-install
           # Bump the trailing integer when the CMake options change.
-          key: vtk-${{ env.VTK_VERSION }}-shared-${{ runner.os }}-${{ runner.arch }}-v1
+          key: vtk-${{ env.VTK_VERSION }}-shared-${{ runner.os }}-${{ runner.arch }}-v2
 
       - name: Install build tools for VTK (Linux)
         if: runner.os == 'Linux' && matrix.config.vtk == 'built-shared' && steps.cache-vtk-shared.outputs.cache-hit != 'true'
@@ -137,6 +137,7 @@ jobs:
             -DVTK_MODULE_ENABLE_VTK_CommonSystem=YES \
             -DVTK_MODULE_ENABLE_VTK_CommonTransforms=YES \
             -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOCellGrid=YES \
             -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
             -DVTK_MODULE_ENABLE_VTK_IOXMLParser=YES \
             -DVTK_MODULE_ENABLE_VTK_IOXML=YES
@@ -277,7 +278,8 @@ jobs:
               src/Makevars.in > src/Makevars
           EOF
           # Strip leading spaces (heredoc inside a script is indented).
-          sed -i 's/^[[:space:]]*//' "$PKG/configure"
+          # -i.bak is portable: BSD sed (macOS) requires a suffix; GNU sed (Linux) accepts it.
+          sed -i.bak 's/^[[:space:]]*//' "$PKG/configure" && rm -f "$PKG/configure.bak"
           chmod +x "$PKG/configure"
 
           # ---- configure.win --------------------------------------------

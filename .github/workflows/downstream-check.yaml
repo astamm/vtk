@@ -245,10 +245,10 @@ jobs:
           # ── re-register so src/cpp11.cpp + R/cpp11.R match our function ──
           cpp11::cpp_register(pkg)
 
-          # ── generate NAMESPACE and man/ from roxygen tags ─────────────────
-          devtools::document(pkg)
-
           # ── propagate PKG_DIR to subsequent steps ────────────────────────
+          # devtools::document() is called AFTER the configure/cleanup scripts
+          # and src/Makevars.in are in place, so that it does not attempt to
+          # compile the package before those files exist.
           cat(sprintf("PKG_DIR=%s\n", pkg), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
 
       # ── 7. Add rvtk configure / cleanup scripts and src/Makevars.in ──────────
@@ -295,7 +295,16 @@ jobs:
           # ---- .Rbuildignore additions ----------------------------------
           printf '^src/Makevars$\n^src/vtk_libs\.rsp$\n' >> "$PKG/.Rbuildignore"
 
-      # ── 8. R CMD check ────────────────────────────────────────────────────────
+      # ── 8. Generate NAMESPACE and man/ from roxygen tags ─────────────────────
+      #
+      # Run devtools::document() only after src/Makevars.in and the configure
+      # scripts are in place, so the package tree is complete before roxygen2
+      # tries to load it.
+      - name: Document downstream package
+        shell: Rscript {0}
+        run: devtools::document(Sys.getenv("PKG_DIR"))
+
+      # ── 9. R CMD check ────────────────────────────────────────────────────────
       - name: Check downstream package
         shell: Rscript {0}
         env:

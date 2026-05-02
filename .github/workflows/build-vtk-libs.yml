@@ -31,7 +31,7 @@ jobs:
       run:
         shell: C:\rtools45\usr\bin\bash.exe --login -eo pipefail {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up R and Rtools45
         uses: r-lib/actions/setup-r@v2
@@ -42,7 +42,7 @@ jobs:
 
       - name: Restore build cache
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: install
           key: vtk-${{ env.VTK_VERSION }}-windows-static-posix-x64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
@@ -129,7 +129,7 @@ jobs:
           zip -r "${PKG}.zip" "${PKG}"
           echo "Created ${PKG}.zip"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vtk-windows-static-posix-x64
           path: vtk-${{ env.VTK_VERSION }}-static-posix-x64.zip
@@ -146,7 +146,7 @@ jobs:
       run:
         shell: C:\rtools45\usr\bin\bash.exe --login -eo pipefail {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up R and Rtools45
         uses: r-lib/actions/setup-r@v2
@@ -156,7 +156,7 @@ jobs:
 
       - name: Restore build cache
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: install
           key: vtk-${{ env.VTK_VERSION }}-windows-shared-posix-x64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
@@ -248,7 +248,7 @@ jobs:
           zip -r "${PKG}.zip" "${PKG}"
           echo "Created ${PKG}.zip"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vtk-windows-shared-posix-x64
           path: vtk-${{ env.VTK_VERSION }}-shared-posix-x64.zip
@@ -259,11 +259,11 @@ jobs:
     name: macOS arm64
     runs-on: macos-latest   # Apple silicon runner
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Restore build cache
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: install
           key: vtk-${{ env.VTK_VERSION }}-macos-arm64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
@@ -322,7 +322,7 @@ jobs:
           tar -czf "${PKG}.tar.gz" "${PKG}"
           echo "Created ${PKG}.tar.gz"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vtk-macos-arm64
           path: vtk-${{ env.VTK_VERSION }}-darwin-arm64.tar.gz
@@ -333,11 +333,11 @@ jobs:
     name: macOS x86_64
     runs-on: macos-latest     # arm64 runner; cross-compile to x86_64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Restore build cache
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: install
           key: vtk-${{ env.VTK_VERSION }}-macos-x86_64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
@@ -394,7 +394,7 @@ jobs:
           tar -czf "${PKG}.tar.gz" "${PKG}"
           echo "Created ${PKG}.tar.gz"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vtk-macos-x86_64
           path: vtk-${{ env.VTK_VERSION }}-darwin-x86_64.tar.gz
@@ -405,11 +405,11 @@ jobs:
     name: Linux x86_64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Restore build cache
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: install
           key: vtk-${{ env.VTK_VERSION }}-linux-x86_64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
@@ -471,7 +471,7 @@ jobs:
           tar -czf "${PKG}.tar.gz" "${PKG}"
           echo "Created ${PKG}.tar.gz"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vtk-linux-x86_64
           path: vtk-${{ env.VTK_VERSION }}-linux-x86_64.tar.gz
@@ -486,7 +486,7 @@ jobs:
       contents: write
     steps:
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -591,7 +591,7 @@ jobs:
           fi
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ env.VTK_VERSION }}
           files: |

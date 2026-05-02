@@ -10,8 +10,8 @@
 #
 # Static libraries (.a) are preferred over shared (.dll.a) when both are
 # present at the same prefix.  If only shared libraries are found the script
-# accepts them and copies the VTK DLLs into inst/libs/x64/ so that R can
-# locate them at run time via its automatic DLL search-path mechanism.
+# accepts them and copies the VTK DLLs into inst/vtk-dlls/ so that an
+# .onLoad hook can prepend that directory to PATH at package load time.
 
 set -e
 
@@ -140,25 +140,26 @@ fi
 
 # ---------------------------------------------------------------------------
 # If a shared system VTK was found (steps 0-2), copy its DLLs into
-# inst/libs/x64/ so that R adds the directory to the DLL search path
-# automatically when rvtk is loaded.  R's own loader calls AddDllDirectory()
-# on every package's libs/x64/ subdirectory, making the DLLs visible to all
-# subsequently loaded shared objects that depend on VTK.
+# inst/vtk-dlls/ (a neutral staging area).  An .onLoad hook in R/vtk.R
+# prepends this directory to PATH via Sys.setenv() at package load time,
+# making the VTK DLLs visible to all subsequently loaded shared objects.
+# Using inst/vtk-dlls/ avoids the R CMD check WARNING about inst/libs/ being
+# reserved for package compiled-code artefacts.
 # ---------------------------------------------------------------------------
 if test "${vtk_found}" = "yes" && test "${vtk_link_type}" = "shared"; then
     if test -n "${vtk_dll_dir}" && test -d "${vtk_dll_dir}"; then
-        mkdir -p inst/libs/x64
+        mkdir -p inst/vtk-dlls
         _ndll=0
         for _dll in "${vtk_dll_dir}"/vtk*.dll "${vtk_dll_dir}"/libvtk*.dll; do
             test -f "${_dll}" || continue
-            cp "${_dll}" inst/libs/x64/
+            cp "${_dll}" inst/vtk-dlls/
             _ndll=$((_ndll + 1))
         done
         if test "${_ndll}" = "0"; then
             echo "WARNING: No VTK DLLs found in ${vtk_dll_dir}" >&2
             echo "         Run-time loading of downstream packages may fail." >&2
         else
-            echo "  Copied ${_ndll} VTK DLL(s) to inst/libs/x64/"
+            echo "  Copied ${_ndll} VTK DLL(s) to inst/vtk-dlls/"
         fi
     fi
 fi

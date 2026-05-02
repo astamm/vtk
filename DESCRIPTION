@@ -20,8 +20,9 @@ Description: Provides pre-compiled static 'VTK' libraries and headers so that
     On Windows the package tries 'VTK_DIR', then 'Rtools45' 'pacman', then
     common 'MSYS2' prefixes, accepting both static ('.a') and shared
     ('.dll.a' import libs + DLLs) installations. When shared libraries are
-    used, the VTK DLLs are copied into 'inst/libs/x64/' so that R adds them
-    to the Windows DLL search path automatically on package load. The
+    used, the VTK DLLs are copied into 'inst/vtk-dlls/' and an '.onLoad'
+    hook prepends that directory to PATH via 'Sys.setenv()' when the
+    package is loaded, and restored in '.onUnload()'. The
     pre-built fallback downloads static libraries by default; set
     'VTK_LINK_TYPE=shared' before installation to download the DLL build
     instead. Note that on Windows the modules 'VTK_IONetCDF', 'VTK_IOHDF',

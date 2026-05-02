@@ -106,6 +106,54 @@ VtkVersion <- function() {
   read_vtk_conf()[["VTK_VERSION"]]
 }
 
+# Package hooks --------------------------------------------------------
+
+## Saved PATH value before rvtk prepended the vtk-dlls directory.
+## Used by .onUnload to restore PATH cleanly.
+.vtk_original_path <- NULL
+
+.onLoad <- function(libname, pkgname) {
+  ## On Windows, if rvtk was installed against a shared VTK build, the VTK
+  ## DLLs are staged in inst/vtk-dlls/.  Prepend that directory to PATH so
+  ## that the Windows DLL loader can find the VTK DLLs when downstream
+  ## packages that link against them are loaded.
+  ##
+  ## R's own library.dynam() uses the same Sys.setenv(PATH=...) mechanism
+  ## (see src/library/base/R/library.R), and the dyn.load() help page
+  ## documents this as the standard approach.  The Windows DLL loader
+  ## searches PATH as part of its resolution chain; R's newer
+  ## SetDllDirectory / AddDllDirectory calls are not exposed at the R level.
+  ##
+  ## We save the original PATH so that .onUnload() can restore it, which
+  ## satisfies CRAN's requirement that packages not leave persistent side
+  ## effects after being unloaded.
+  if (.Platform$OS.type == "windows") {
+    dll_dir <- system.file("vtk-dlls", package = pkgname, lib.loc = libname)
+    if (nzchar(dll_dir) && dir.exists(dll_dir)) {
+      dll_dir_win <- normalizePath(dll_dir, winslash = "\\", mustWork = FALSE)
+      old_path <- Sys.getenv("PATH")
+      if (!grepl(dll_dir_win, old_path, fixed = TRUE)) {
+        ## Save original PATH for restoration in .onUnload
+        ns <- environment(sys.function())
+        assign(".vtk_original_path", old_path, envir = ns)
+        Sys.setenv(PATH = paste(dll_dir_win, old_path, sep = ";"))
+      }
+    }
+  }
+}
+
+.onUnload <- function(libpath) {
+  ## Restore PATH to the value it had before .onLoad prepended vtk-dlls,
+  ## so that unloading rvtk leaves no persistent side effects.
+  if (.Platform$OS.type == "windows") {
+    ns <- asNamespace("rvtk")
+    saved <- get0(".vtk_original_path", envir = ns, inherits = FALSE)
+    if (!is.null(saved)) {
+      Sys.setenv(PATH = saved)
+    }
+  }
+}
+
 # Internal helper -------------------------------------------------------
 
 read_vtk_conf <- function(
@@ -191,8 +239,7 @@ read_vtk_conf <- function(
 
     if (identical(link_type, "shared")) {
       ## Shared build: link against .dll.a import libs.  The VTK DLLs live in
-      ## inst/libs/x64/ and R's loader (AddDllDirectory) adds that directory to
-      ## the DLL search path automatically when rvtk is loaded, so downstream
+      ## inst/vtk-dlls/ and are prepended to PATH by .onLoad() so downstream
       ## packages do not need to do anything special.
       all_libs <- list.files(
         lib_dir,

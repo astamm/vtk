@@ -23,10 +23,14 @@
   - A new pre-built shared-DLL build (`vtk-X.Y.Z-shared-posix-x64.zip`) is
     available as an alternative to the existing static build.  Select it by
     setting `VTK_LINK_TYPE=shared` before installing **rvtk**.
-  - VTK DLLs are installed to `inst/libs/x64/`. R calls
-    `AddDllDirectory()` on every loaded package's `libs/x64/` subdirectory,
+  - VTK DLLs are staged in `inst/vtk-dlls/`. An `.onLoad` hook prepends
+    that directory to `PATH` via `Sys.setenv()` when rvtk is loaded,
     making the DLLs visible to all downstream packages that declare
-    `Imports: rvtk` without any PATH manipulation.
+    `Imports: rvtk` without any manual PATH manipulation. The original
+    `PATH` is restored in `.onUnload()` to avoid persistent side effects.
+    (`AddDllDirectory()` is not exposed as an R-level function;
+    `PATH` mutation with save/restore is R's own canonical approach,
+    used internally by `library.dynam()`.)
   - The shared-DLL release artifact is built with the same
     `x86_64-w64-mingw32.static.posix` toolchain and
     `-static-libgcc -static-libstdc++`, so the resulting DLLs have no

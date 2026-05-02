@@ -95,9 +95,9 @@ pak::pak("astamm/rvtk")
 ```
 
 When `VTK_LINK_TYPE=shared` the installer downloads
-`vtk-X.Y.Z-shared-posix-x64.zip`, places the DLLs in `inst/libs/x64/`,
-and records `VTK_LINK=shared` in `vtk.conf`. R automatically adds
-`libs/x64/` to the Windows DLL search path when rvtk is loaded, so
+`vtk-X.Y.Z-shared-posix-x64.zip`, places the DLLs in `inst/vtk-dlls/`,
+and records `VTK_LINK=shared` in `vtk.conf`. An `.onLoad` hook prepends
+that directory to `PATH` via `Sys.setenv()` when rvtk is loaded, so
 downstream packages require no extra configuration.
 
 Configuration results are stored in `inst/vtk.conf` and read at run time
@@ -108,7 +108,7 @@ by `CppFlags()`, `LdFlags()`, and `VtkVersion()`.
 When **rvtk** is installed with `VTK_LINK_TYPE=shared` (or when a system
 installation with only shared libs is detected), downstream packages
 link against VTK `.dll.a` import libraries and load the VTK DLLs from
-rvtk’s `inst/libs/x64/` at run time.
+rvtk’s `inst/vtk-dlls/` at run time.
 
 This has two implications that downstream package authors should
 communicate to their users:
@@ -127,7 +127,7 @@ communicate to their users:
     additional VTK modules (e.g. `vtkRenderingOpenGL2`,
     `vtkFiltersCore`) must request that those modules be added to the
     pre-built DLL set by opening an issue on the rvtk repository. Each
-    additional module increases the size of `inst/libs/x64/` for **all**
+    additional module increases the size of `inst/vtk-dlls/` for **all**
     downstream packages, which affects install time and CRAN size
     limits.
 

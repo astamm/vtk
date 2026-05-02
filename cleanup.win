@@ -2,7 +2,5 @@
 # cleanup.win -- remove generated files on Windows
 
 rm -f inst/vtk.conf
-# Remove DLLs copied from a shared system VTK installation.
-# DLLs from the pre-built shared download live in inst/windows/ and are
-# removed when that directory is cleaned by the installer.
-rm -rf inst/libs
+# Remove DLLs staged for a shared VTK installation.
+rm -rf inst/vtk-dlls

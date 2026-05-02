@@ -120,10 +120,11 @@ if (length(versioned_dirs) > 0) {
 }
 
 ## \u2500\u2500 For shared builds: copy DLLs into inst/libs/x64/ \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-## R automatically calls AddDllDirectory() on every package's libs/x64/
-## directory when loading the package.  Placing VTK DLLs here ensures that
-## downstream packages which declare 'Imports: rvtk' can load VTK-linked
-## code without any PATH manipulation.
+## The .onLoad hook in R/vtk.R prepends inst/vtk-dlls/ to PATH via
+## Sys.setenv() when rvtk is loaded.  This ensures downstream packages
+## which declare 'Imports: rvtk' can load VTK-linked code without any
+## manual PATH manipulation.  (AddDllDirectory() is not exposed at the R
+## level; PATH mutation is the standard pure-R alternative.)
 if (link_type == "shared") {
   bin_dir <- file.path(dest_dir, "bin")
   if (!dir.exists(bin_dir)) {

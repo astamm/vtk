@@ -118,6 +118,11 @@ VtkVersion <- function() {
   ## that the Windows DLL loader can find the VTK DLLs when downstream
   ## packages that link against them are loaded.
   ##
+  ## For system VTK installs (e.g. pacman ucrt64), also prepend VTK_DLL_DIR
+  ## (the original bin/ of the system VTK, e.g. C:/rtools45/ucrt64/bin) so
+  ## that transitive dependencies of the VTK DLLs (libtbb, libgcc_s, etc.)
+  ## which live there can also be found by the Windows DLL loader.
+  ##
   ## R's own library.dynam() uses the same Sys.setenv(PATH=...) mechanism
   ## (see src/library/base/R/library.R), and the dyn.load() help page
   ## documents this as the standard approach.  The Windows DLL loader
@@ -128,15 +133,42 @@ VtkVersion <- function() {
   ## satisfies CRAN's requirement that packages not leave persistent side
   ## effects after being unloaded.
   if (.Platform$OS.type == "windows") {
+    conf <- tryCatch(read_vtk_conf(), error = function(e) NULL)
+
+    ## Directory containing staged VTK DLLs (always present for shared builds)
     dll_dir <- system.file("vtk-dlls", package = pkgname, lib.loc = libname)
+
+    ## Original system VTK bin/ dir (present for system-VTK shared builds only)
+    vtk_dll_dir <- if (!is.null(conf)) conf[["VTK_DLL_DIR"]] else NULL
+
+    dirs_to_add <- character(0L)
     if (nzchar(dll_dir) && dir.exists(dll_dir)) {
-      dll_dir_win <- normalizePath(dll_dir, winslash = "\\", mustWork = FALSE)
+      dirs_to_add <- c(
+        normalizePath(dll_dir, winslash = "\\", mustWork = FALSE),
+        dirs_to_add
+      )
+    }
+    if (!is.null(vtk_dll_dir) && nzchar(vtk_dll_dir)) {
+      dirs_to_add <- c(
+        dirs_to_add,
+        normalizePath(vtk_dll_dir, winslash = "\\", mustWork = FALSE)
+      )
+    }
+
+    if (length(dirs_to_add) > 0L) {
       old_path <- Sys.getenv("PATH")
-      if (!grepl(dll_dir_win, old_path, fixed = TRUE)) {
-        ## Save original PATH for restoration in .onUnload
+      new_dirs <- dirs_to_add[!vapply(
+        dirs_to_add,
+        function(d) grepl(d, old_path, fixed = TRUE),
+        logical(1L)
+      )]
+      if (length(new_dirs) > 0L) {
         ns <- environment(sys.function())
         assign(".vtk_original_path", old_path, envir = ns)
-        Sys.setenv(PATH = paste(dll_dir_win, old_path, sep = ";"))
+        Sys.setenv(PATH = paste(
+          paste(new_dirs, collapse = ";"), old_path,
+          sep = ";"
+        ))
       }
     }
   }

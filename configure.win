@@ -28,6 +28,7 @@ VTK_MIN_SUFFIX="$(echo "${VTK_MIN_VERSION}" | sed 's/\([0-9]*\)\.\([0-9]*\)\..*/
 # Extra state variables (in addition to those set by vtk-detect.sh).
 vtk_link_type="static"
 vtk_dll_dir=""
+vtk_dll_dir_win=""
 
 # ---------------------------------------------------------------------------
 # Windows-specific build-flag helper
@@ -80,6 +81,7 @@ vtk_build_flags() {
         vtk_found="yes"
         vtk_link_type="shared"
         vtk_dll_dir="${_bindir}"
+        vtk_dll_dir_win="${_win_bindir}"
         vtk_cppflags="-I${_win_inc}"
         vtk_libs="-L${_win_libdir} ${_import_libs}-lgdi32"
         echo "  -> linking VTK (shared via import libs; DLLs expected in ${_win_bindir})"
@@ -218,6 +220,7 @@ VTK_CPPFLAGS=${vtk_cppflags}
 VTK_LIBS=${vtk_libs}
 VTK_INCLUDE_DIR=${vtk_include_dir_win}
 VTK_LINK=${vtk_link_type}
+VTK_DLL_DIR=${vtk_dll_dir_win}
 EOF
 
 echo "Written inst/vtk.conf (VTK ${vtk_version}, ${vtk_link_type})"

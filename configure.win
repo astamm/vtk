@@ -49,9 +49,9 @@ vtk_build_flags() {
     ## Convert POSIX/MSYS2 paths to native Windows paths so they work
     ## both in MSYS2 bash (configure.win) and in R's make/linker context.
     if command -v cygpath > /dev/null 2>&1; then
-        _win_libdir="$(cygpath -w "${_libdir}")"
-        _win_bindir="$(cygpath -w "${_bindir}")"
-        _win_inc="$(cygpath -w "${vtk_include_dir}")"
+        _win_libdir="$(cygpath -m "${_libdir}")"
+        _win_bindir="$(cygpath -m "${_bindir}")"
+        _win_inc="$(cygpath -m "${vtk_include_dir}")"
     else
         _win_libdir="${_libdir}"
         _win_bindir="${_bindir}"
@@ -207,7 +207,7 @@ mkdir -p inst
 
 ## Convert the include dir to a Windows path if cygpath is available.
 if command -v cygpath > /dev/null 2>&1; then
-    vtk_include_dir_win="$(cygpath -w "${vtk_include_dir}")"
+    vtk_include_dir_win="$(cygpath -m "${vtk_include_dir}")"
 else
     vtk_include_dir_win="${vtk_include_dir}"
 fi

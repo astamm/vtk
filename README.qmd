@@ -111,8 +111,7 @@ Configuration results are stored in `inst/vtk.conf` and read at run time by
 `CppFlags()`, `LdFlags()`, and `VtkVersion()`.
 :::
 
-
-::: {.callout-important title="Important notes for downstream package developers using Windows shared VTK"}
+::: {.callout-important title="Downstream package developers using Windows shared VTK"}
 When **rvtk** is installed with `VTK_LINK_TYPE=shared` (or when a system
 installation with only shared libs is detected), downstream packages link
 against VTK `.dll.a` import libraries and load the VTK DLLs from rvtk's
@@ -174,14 +173,15 @@ returns `@path` — the short token the linker reads instead. GNU ld and LLVM
 lld both support this syntax. On macOS and Linux the flags are also written to
 the file so the calling convention is identical on all platforms.
 
-::: {.callout-tip title="Step 1 — `src/Makevars.in` (template, committed to version control)" icon="false" collapse="true"}
+### Step 1 — `src/Makevars.in` (template, committed to version control)
+
 ```makefile
 PKG_CPPFLAGS = @VTK_CPPFLAGS@
 PKG_LIBS     = @VTK_LIBS@
 ```
-:::
 
-::: {.callout-tip title="Step 2 — `configure`(`.win`)" icon="false" collapse="true"}
+### Step 2 — `configure`(`.win`)
+
 ```sh
 # configure (macOS/Linux/Windows)
 #!/bin/sh
@@ -208,18 +208,18 @@ Make them executable:
 ```sh
 chmod +x configure configure.win
 ```
-:::
 
-::: {.callout-tip title="Step 3 — `.gitignore` / `.Rbuildignore`" icon="false" collapse="true"}
+### Step 3 — `.gitignore` / `.Rbuildignore`
+
 Add the generated files to `.gitignore` and `.Rbuildignore` so they are not committed:
 
 ```
 src/Makevars
 src/vtk_libs.rsp
 ```
-:::
 
-::: {.callout-tip title="Step 4 - `cleanup`(`.win`)" icon="false" collapse="true"}
+### Step 4 - `cleanup`(`.win`)
+
 Add a `cleanup` / `cleanup.win` script that removes the generated `Makevars`
 after installation so it is not accidentally committed:
 
@@ -240,9 +240,9 @@ Make them executable:
 ```sh
 chmod +x cleanup cleanup.win
 ```
-:::
 
-::: {.callout-tip title="Step 5 - Function import" icon="false" collapse="true"}
+### Step 5 - Function import
+
 The **rvtk** package is meant to be used by downstream packages that link against VTK. It is most likely that its R functions will only be called from `configure` / `configure.win` scripts. `R CMD check` will complain because it means that you must list **rvtk** in the `Imports` field of your `DESCRIPTION` but do not actually import any of its functions in your R code. The solution is to import at least one of the functions in a dummy R script that is not used for anything else:
 
 ```r
@@ -250,7 +250,6 @@ The **rvtk** package is meant to be used by downstream packages that link agains
 #' @importFrom rvtk CppFlags LdFlagsFile
 NULL
 ```
-:::
 
 ## Querying the detected installation
 

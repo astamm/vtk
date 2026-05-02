@@ -108,7 +108,7 @@ The `configure.win` script also tries each strategy in order:
 
 > [!IMPORTANT]
 >
-> ### Important notes for downstream package developers using Windows shared VTK
+> ### Downstream package developers using Windows shared VTK
 >
 > When **rvtk** is installed with `VTK_LINK_TYPE=shared` (or when a
 > system installation with only shared libs is detected), downstream
@@ -171,98 +171,88 @@ instead. GNU ld and LLVM lld both support this syntax. On macOS and
 Linux the flags are also written to the file so the calling convention
 is identical on all platforms.
 
-> [!TIP]
->
-> ### Step 1 — `src/Makevars.in` (template, committed to version control)
->
-> ``` makefile
-> PKG_CPPFLAGS = @VTK_CPPFLAGS@
-> PKG_LIBS     = @VTK_LIBS@
-> ```
+### Step 1 — `src/Makevars.in` (template, committed to version control)
 
-> [!TIP]
->
-> ### Step 2 — `configure`(`.win`)
->
-> ``` sh
-> # configure (macOS/Linux/Windows)
-> #!/bin/sh
-> set -e
-> : "${R_HOME:=$(R RHOME)}"
-> VTK_CPPFLAGS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::CppFlags()")"
-> # LdFlagsFile() writes all linker flags to a response file (src/vtk_libs.rsp)
-> # and returns the short token @vtk_libs.rsp that is safe on all platforms,
-> # including Windows where the full flag string can exceed the 8191-char limit.
-> VTK_LIBS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::LdFlagsFile('src/vtk_libs.rsp')")"
-> sed -e "s|@VTK_CPPFLAGS@|${VTK_CPPFLAGS}|g" \
->     -e "s|@VTK_LIBS@|${VTK_LIBS}|g" \
->     src/Makevars.in > src/Makevars
-> ```
->
-> ``` sh
-> # configure.win (Windows)
-> #!/bin/sh
-> ./configure
-> ```
->
-> Make them executable:
->
-> ``` sh
-> chmod +x configure configure.win
-> ```
+``` makefile
+PKG_CPPFLAGS = @VTK_CPPFLAGS@
+PKG_LIBS     = @VTK_LIBS@
+```
 
-> [!TIP]
->
-> ### Step 3 — `.gitignore` / `.Rbuildignore`
->
-> Add the generated files to `.gitignore` and `.Rbuildignore` so they
-> are not committed:
->
->     src/Makevars
->     src/vtk_libs.rsp
+### Step 2 — `configure`(`.win`)
 
-> [!TIP]
->
-> ### Step 4 - `cleanup`(`.win`)
->
-> Add a `cleanup` / `cleanup.win` script that removes the generated
-> `Makevars` after installation so it is not accidentally committed:
->
-> ``` sh
-> # cleanup (macOS/Linux/Windows)
-> #!/bin/sh
-> rm -f src/Makevars src/vtk_libs.rsp
-> ```
->
-> ``` sh
-> # cleanup.win (Windows)
-> #!/bin/sh
-> ./cleanup
-> ```
->
-> Make them executable:
->
-> ``` sh
-> chmod +x cleanup cleanup.win
-> ```
+``` sh
+# configure (macOS/Linux/Windows)
+#!/bin/sh
+set -e
+: "${R_HOME:=$(R RHOME)}"
+VTK_CPPFLAGS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::CppFlags()")"
+# LdFlagsFile() writes all linker flags to a response file (src/vtk_libs.rsp)
+# and returns the short token @vtk_libs.rsp that is safe on all platforms,
+# including Windows where the full flag string can exceed the 8191-char limit.
+VTK_LIBS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::LdFlagsFile('src/vtk_libs.rsp')")"
+sed -e "s|@VTK_CPPFLAGS@|${VTK_CPPFLAGS}|g" \
+    -e "s|@VTK_LIBS@|${VTK_LIBS}|g" \
+    src/Makevars.in > src/Makevars
+```
 
-> [!TIP]
->
-> ### Step 5 - Function import
->
-> The **rvtk** package is meant to be used by downstream packages that
-> link against VTK. It is most likely that its R functions will only be
-> called from `configure` / `configure.win` scripts. `R CMD check` will
-> complain because it means that you must list **rvtk** in the `Imports`
-> field of your `DESCRIPTION` but do not actually import any of its
-> functions in your R code. The solution is to import at least one of
-> the functions in a dummy R script that is not used for anything else:
->
-> ``` r
-> # R/rvtk_imports.R
-> #' @importFrom rvtk CppFlags LdFlagsFile
-> NULL
-> ```
+``` sh
+# configure.win (Windows)
+#!/bin/sh
+./configure
+```
+
+Make them executable:
+
+``` sh
+chmod +x configure configure.win
+```
+
+### Step 3 — `.gitignore` / `.Rbuildignore`
+
+Add the generated files to `.gitignore` and `.Rbuildignore` so they are
+not committed:
+
+    src/Makevars
+    src/vtk_libs.rsp
+
+### Step 4 - `cleanup`(`.win`)
+
+Add a `cleanup` / `cleanup.win` script that removes the generated
+`Makevars` after installation so it is not accidentally committed:
+
+``` sh
+# cleanup (macOS/Linux/Windows)
+#!/bin/sh
+rm -f src/Makevars src/vtk_libs.rsp
+```
+
+``` sh
+# cleanup.win (Windows)
+#!/bin/sh
+./cleanup
+```
+
+Make them executable:
+
+``` sh
+chmod +x cleanup cleanup.win
+```
+
+### Step 5 - Function import
+
+The **rvtk** package is meant to be used by downstream packages that
+link against VTK. It is most likely that its R functions will only be
+called from `configure` / `configure.win` scripts. `R CMD check` will
+complain because it means that you must list **rvtk** in the `Imports`
+field of your `DESCRIPTION` but do not actually import any of its
+functions in your R code. The solution is to import at least one of the
+functions in a dummy R script that is not used for anything else:
+
+``` r
+# R/rvtk_imports.R
+#' @importFrom rvtk CppFlags LdFlagsFile
+NULL
+```
 
 ## Querying the detected installation
 

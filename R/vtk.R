@@ -213,20 +213,33 @@ read_vtk_conf <- function(
       ## Exclude any .dll.a import libs that might co-exist with .a archives.
       all_libs <- list.files(lib_dir, pattern = "\\.a$", full.names = FALSE)
       all_libs <- all_libs[!grepl("\\.dll\\.a$", all_libs)]
+      all_libs_full <- file.path(lib_dir, all_libs)
       lib_flags <- paste(
         sprintf("-l%s", sub("\\.a$", "", sub("^lib", "", all_libs))),
         collapse = " "
       )
-      conf[["VTK_LIBS"]] <- paste(
-        sprintf('-L"%s"', lib_dir),
-        "-Wl,--start-group",
-        lib_flags,
-        ## gdi32: GDI functions used by vtkWin32OutputWindow.
-        ## POSIX threading / libc symbols are resolved automatically by the
-        ## x86_64-w64-mingw32.static.posix toolchain's default link libraries.
-        "-lgdi32",
-        "-Wl,--end-group"
-      )
+      if (sysname == "Darwin") {
+        ## Cross-compiling on macOS: use -all_load (Apple ld syntax) and omit
+        ## the Windows-only -lgdi32.
+        conf[["VTK_LIBS"]] <- paste(
+          sprintf('-L"%s"', lib_dir),
+          "-Wl,-all_load",
+          lib_flags
+        )
+      } else {
+        ## Native Windows or Linux cross-compile: use GNU ld group syntax.
+        ## -lgdi32 is only needed when the actual target linker is MinGW (i.e.
+        ## building on or for Windows).  On Linux cross-builds the Windows
+        ## system libs are resolved by the cross toolchain automatically.
+        gdi_flag <- if (sysname == "Windows") "-lgdi32" else ""
+        conf[["VTK_LIBS"]] <- trimws(paste(
+          sprintf('-L"%s"', lib_dir),
+          "-Wl,--start-group",
+          lib_flags,
+          gdi_flag,
+          "-Wl,--end-group"
+        ))
+      }
     }
   }
 

@@ -37,10 +37,26 @@ vtk_dll_dir=""
 ## Tries static (.a, NOT .dll.a) first.  If none are found, falls back to
 ## shared import libs (.dll.a).  Sets vtk_found, vtk_link_type, vtk_dll_dir,
 ## vtk_cppflags, vtk_libs.
+##
+## MSYS2/Rtools45 paths (e.g. /ucrt64/lib) are converted to native Windows
+## absolute paths via cygpath so that they remain valid when the linker is
+## invoked outside the MSYS2 bash context (e.g. from R's make/cmd.exe).
 vtk_build_flags() {
     _prefix="$1"
     _libdir="${_prefix}/lib"
     _bindir="${_prefix}/bin"
+
+    ## Convert POSIX/MSYS2 paths to native Windows paths so they work
+    ## both in MSYS2 bash (configure.win) and in R's make/linker context.
+    if command -v cygpath > /dev/null 2>&1; then
+        _win_libdir="$(cygpath -w "${_libdir}")"
+        _win_bindir="$(cygpath -w "${_bindir}")"
+        _win_inc="$(cygpath -w "${vtk_include_dir}")"
+    else
+        _win_libdir="${_libdir}"
+        _win_bindir="${_bindir}"
+        _win_inc="${vtk_include_dir}"
+    fi
 
     ## ── Static (.a but NOT .dll.a) ────────────────────────────────────────
     _static_libs="$(find "${_libdir}" -maxdepth 1 -name "libvtk*.a" \
@@ -50,8 +66,8 @@ vtk_build_flags() {
     if test -n "${_static_libs}"; then
         vtk_found="yes"
         vtk_link_type="static"
-        vtk_cppflags="-I${vtk_include_dir}"
-        vtk_libs="-L${_libdir} -Wl,--start-group ${_static_libs}-lgdi32 -Wl,--end-group"
+        vtk_cppflags="-I${_win_inc}"
+        vtk_libs="-L${_win_libdir} -Wl,--start-group ${_static_libs}-lgdi32 -Wl,--end-group"
         echo "  -> linking VTK (static)"
         return 0
     fi
@@ -64,9 +80,9 @@ vtk_build_flags() {
         vtk_found="yes"
         vtk_link_type="shared"
         vtk_dll_dir="${_bindir}"
-        vtk_cppflags="-I${vtk_include_dir}"
-        vtk_libs="-L${_libdir} ${_import_libs}-lgdi32"
-        echo "  -> linking VTK (shared via import libs; DLLs expected in ${_bindir})"
+        vtk_cppflags="-I${_win_inc}"
+        vtk_libs="-L${_win_libdir} ${_import_libs}-lgdi32"
+        echo "  -> linking VTK (shared via import libs; DLLs expected in ${_win_bindir})"
         return 0
     fi
 }
@@ -188,11 +204,19 @@ fi
 # Write inst/vtk.conf
 # ---------------------------------------------------------------------------
 mkdir -p inst
+
+## Convert the include dir to a Windows path if cygpath is available.
+if command -v cygpath > /dev/null 2>&1; then
+    vtk_include_dir_win="$(cygpath -w "${vtk_include_dir}")"
+else
+    vtk_include_dir_win="${vtk_include_dir}"
+fi
+
 cat > inst/vtk.conf << EOF
 VTK_VERSION=${vtk_version}
 VTK_CPPFLAGS=${vtk_cppflags}
 VTK_LIBS=${vtk_libs}
-VTK_INCLUDE_DIR=${vtk_include_dir}
+VTK_INCLUDE_DIR=${vtk_include_dir_win}
 VTK_LINK=${vtk_link_type}
 EOF
 

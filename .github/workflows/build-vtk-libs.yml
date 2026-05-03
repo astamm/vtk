@@ -31,7 +31,7 @@ jobs:
       run:
         shell: C:\rtools45\usr\bin\bash.exe --login -eo pipefail {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up R and Rtools45
         uses: r-lib/actions/setup-r@v2
@@ -42,7 +42,7 @@ jobs:
 
       - name: Restore build cache
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: install
           key: vtk-${{ env.VTK_VERSION }}-windows-static-posix-x64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
@@ -129,10 +129,129 @@ jobs:
           zip -r "${PKG}.zip" "${PKG}"
           echo "Created ${PKG}.zip"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vtk-windows-static-posix-x64
           path: vtk-${{ env.VTK_VERSION }}-static-posix-x64.zip
+          retention-days: 7
+
+  # ── Windows: shared DLLs with x86_64-w64-mingw32.static.posix (statically-linked runtime) ─
+  build-windows-shared:
+    name: Windows (shared-posix-x64)
+    runs-on: windows-latest
+    env:
+      MSYSTEM: UCRT64
+      CHERE_INVOKING: '1'
+    defaults:
+      run:
+        shell: C:\rtools45\usr\bin\bash.exe --login -eo pipefail {0}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up R and Rtools45
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          rtools-version: '45'
+
+      - name: Restore build cache
+        id: cache
+        uses: actions/cache@v5
+        with:
+          path: install
+          key: vtk-${{ env.VTK_VERSION }}-windows-shared-posix-x64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
+
+      - name: Install build tools via pacman (cmake + ninja only)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          pacman -Sy --noconfirm --needed \
+            mingw-w64-ucrt-x86_64-cmake \
+            mingw-w64-ucrt-x86_64-ninja
+          echo "export PATH=/x86_64-w64-mingw32.static.posix/bin:/ucrt64/bin:\$PATH" >> ~/.bash_profile
+
+      - name: Download VTK source
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          URL="https://www.vtk.org/files/release/${MINOR}/VTK-${VER}.tar.gz"
+          echo "Downloading $URL"
+          curl -fsSL "$URL" -o vtk-src.tar.gz
+          tar -xzf vtk-src.tar.gz
+
+      - name: Configure VTK (shared libs, statically-linked runtime)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          # Use the same x86_64-w64-mingw32.static.posix toolchain as the static
+          # build, but with BUILD_SHARED_LIBS=ON.  The -static-libgcc /
+          # -static-libstdc++ flags fold the C++ runtime into each DLL so the
+          # resulting DLLs have no dependency on external MSYS2 runtime DLLs
+          # (libstdc++-6.dll, libgcc_s_seh-1.dll, libwinpthread-1.dll).
+          export PATH="/x86_64-w64-mingw32.static.posix/bin:${PATH}"
+          TCHAIN=/x86_64-w64-mingw32.static.posix/bin
+          export CC="${TCHAIN}/gcc"
+          export CXX="${TCHAIN}/g++"
+          export AR="${TCHAIN}/ar"
+          export RANLIB="${TCHAIN}/ranlib"
+          mkdir -p build install
+          INSTALL_PREFIX="$(cygpath -w "$(pwd)/install")"
+          cd build
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_C_FLAGS="-fcommon" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
+            -DVTK_BUILD_ALL_MODULES=OFF \
+            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOXML=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
+            -DVTK_MODULE_ENABLE_VTK_IONetCDF=NO \
+            -DVTK_MODULE_ENABLE_VTK_IOHDF=NO \
+            -DVTK_MODULE_ENABLE_VTK_GeovisCore=NO \
+            -DVTK_MODULE_ENABLE_VTK_RenderingCore=NO \
+            -DVTK_MODULE_ENABLE_VTK_netcdf=NO \
+            -DVTK_MODULE_ENABLE_VTK_libproj=NO \
+            -DVTK_MODULE_USE_EXTERNAL_VTK_netcdf=OFF \
+            -DVTK_MODULE_USE_EXTERNAL_VTK_libproj=NO \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DH5_HAVE_VASPRINTF:INTERNAL=0 \
+            ../VTK-${VER}
+
+      - name: Build and install VTK
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd build
+          ninja -j$(nproc)
+          ninja install
+
+      - name: Package archive
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          PKG="vtk-${VER}-shared-posix-x64"
+          mkdir -p "${PKG}/include/vtk-${MINOR}" "${PKG}/lib" "${PKG}/bin"
+          # Headers (same as static build)
+          SRC_INC=$(find install/include -maxdepth 1 -name "vtk-*" -type d | sort -V | tail -1)
+          if [ -n "${SRC_INC}" ]; then
+            cp -R "${SRC_INC}/"* "${PKG}/include/vtk-${MINOR}/"
+          fi
+          # Import libs (.dll.a) for link time
+          find install/lib -name "*.dll.a" -exec cp {} "${PKG}/lib/" \;
+          # DLLs for run time
+          find install/bin -name "*.dll" -exec cp {} "${PKG}/bin/" \;
+          echo "Import libs: $(find ${PKG}/lib -name '*.dll.a' | wc -l)"
+          echo "DLLs:        $(find ${PKG}/bin -name '*.dll'   | wc -l)"
+          zip -r "${PKG}.zip" "${PKG}"
+          echo "Created ${PKG}.zip"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vtk-windows-shared-posix-x64
+          path: vtk-${{ env.VTK_VERSION }}-shared-posix-x64.zip
           retention-days: 7
 
   # ── macOS arm64 ────────────────────────────────────────────────────────────
@@ -140,11 +259,11 @@ jobs:
     name: macOS arm64
     runs-on: macos-latest   # Apple silicon runner
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Restore build cache
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: install
           key: vtk-${{ env.VTK_VERSION }}-macos-arm64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
@@ -203,7 +322,7 @@ jobs:
           tar -czf "${PKG}.tar.gz" "${PKG}"
           echo "Created ${PKG}.tar.gz"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vtk-macos-arm64
           path: vtk-${{ env.VTK_VERSION }}-darwin-arm64.tar.gz
@@ -214,11 +333,11 @@ jobs:
     name: macOS x86_64
     runs-on: macos-latest     # arm64 runner; cross-compile to x86_64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Restore build cache
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: install
           key: vtk-${{ env.VTK_VERSION }}-macos-x86_64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
@@ -275,7 +394,7 @@ jobs:
           tar -czf "${PKG}.tar.gz" "${PKG}"
           echo "Created ${PKG}.tar.gz"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vtk-macos-x86_64
           path: vtk-${{ env.VTK_VERSION }}-darwin-x86_64.tar.gz
@@ -286,11 +405,11 @@ jobs:
     name: Linux x86_64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Restore build cache
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: install
           key: vtk-${{ env.VTK_VERSION }}-linux-x86_64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
@@ -352,7 +471,7 @@ jobs:
           tar -czf "${PKG}.tar.gz" "${PKG}"
           echo "Created ${PKG}.tar.gz"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vtk-linux-x86_64
           path: vtk-${{ env.VTK_VERSION }}-linux-x86_64.tar.gz
@@ -361,13 +480,13 @@ jobs:
   # ── GitHub Release ─────────────────────────────────────────────────────────
   release:
     name: Publish GitHub Release
-    needs: [build-windows, build-macos-arm64, build-macos-x86_64, build-linux]
+    needs: [build-windows, build-windows-shared, build-macos-arm64, build-macos-x86_64, build-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -391,24 +510,39 @@ jobs:
 
           ## Archives
 
-          | Platform | Archive |
-          |---|---|
-          | Windows (Rtools45 static.posix x64) | `vtk-$VER-static-posix-x64.zip` |
-          | macOS arm64 (Apple Silicon) | `vtk-$VER-darwin-arm64.tar.gz` |
-          | macOS x86\_64 (Intel) | `vtk-$VER-darwin-x86_64.tar.gz` |
-          | Linux x86\_64 | `vtk-$VER-linux-x86_64.tar.gz` |
+          | Platform | Link type | Archive |
+          |---|---|---|
+          | Windows (Rtools45 static.posix x64) | static `.a` | `vtk-$VER-static-posix-x64.zip` |
+          | Windows (Rtools45 static.posix x64) | shared `.dll` | `vtk-$VER-shared-posix-x64.zip` |
+          | macOS arm64 (Apple Silicon) | static `.a` | `vtk-$VER-darwin-arm64.tar.gz` |
+          | macOS x86\_64 (Intel) | static `.a` | `vtk-$VER-darwin-x86_64.tar.gz` |
+          | Linux x86\_64 | static `.a` | `vtk-$VER-linux-x86_64.tar.gz` |
 
           ## Archive layout
 
+          **Static** (`*-static-posix-x64.zip`):
           ```
           include/vtk-$MINOR/    ← VTK headers
           lib/                   ← static libraries (.a)
           ```
 
+          **Shared** (`*-shared-posix-x64.zip`):
+          ```
+          include/vtk-$MINOR/    ← VTK headers
+          lib/                   ← import libraries (.dll.a, for link time)
+          bin/                   ← DLLs (.dll, for run time)
+          ```
+
+          > The shared-DLL build uses the same `x86_64-w64-mingw32.static.posix`
+          > toolchain with `-static-libgcc -static-libstdc++`, so VTK DLLs carry no
+          > dependency on external MSYS2 runtime DLLs.
+
           ## CMake flags (all platforms)
 
           ```cmake
-          -DBUILD_SHARED_LIBS=OFF
+          # Static build:  -DBUILD_SHARED_LIBS=OFF
+          # Shared build:  -DBUILD_SHARED_LIBS=ON
+          #                -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++"
           -DVTK_BUILD_ALL_MODULES=OFF
           -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES
           -DVTK_MODULE_ENABLE_VTK_IOXML=YES
@@ -457,11 +591,12 @@ jobs:
           fi
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ env.VTK_VERSION }}
           files: |
             artifacts/vtk-windows-static-posix-x64/vtk-${{ env.VTK_VERSION }}-static-posix-x64.zip
+            artifacts/vtk-windows-shared-posix-x64/vtk-${{ env.VTK_VERSION }}-shared-posix-x64.zip
             artifacts/vtk-macos-arm64/vtk-${{ env.VTK_VERSION }}-darwin-arm64.tar.gz
             artifacts/vtk-macos-x86_64/vtk-${{ env.VTK_VERSION }}-darwin-x86_64.tar.gz
             artifacts/vtk-linux-x86_64/vtk-${{ env.VTK_VERSION }}-linux-x86_64.tar.gz

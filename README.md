@@ -1,5 +1,6 @@
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+<!-- README.md is generated from README.qmd. Please edit that file -->
 
 # rvtk
 
@@ -19,31 +20,119 @@ on the current machine.
 
 ## How VTK is located
 
-On macOS and Linux the package runs a `configure` script at install time
-that tries each of the following strategies in order, stopping as soon
-as one succeeds:
+### macOS and Linux
+
+The `configure` script tries each strategy in order, stopping as soon as
+one succeeds:
 
 1.  The environment variable `VTK_DIR` (path to a VTK build or install
     tree).
-2.  [Homebrew](https://brew.sh/) (`brew --prefix vtk`).
+2.  [Homebrew](https://brew.sh/) (`brew --prefix vtk`) — macOS only.
 3.  `pkg-config` (`vtk-9.5`, `vtk-9.4`, …, `vtk-9.1`).
-4.  Common system prefixes (`/usr/local`, `/usr`, `/opt/local`).
+4.  Well-known system prefixes (`/usr`, `/usr/local`) — Linux only.
 5.  Download pre-built static libraries from
-    <https://github.com/astamm/rvtk/releases>.
+    <https://github.com/astamm/rvtk/releases> as a fallback.
 
-On Windows, pre-built static libraries (built with the
-`x86_64-w64-mingw32.static.posix` toolchain bundled in Rtools45) are
-always downloaded automatically from the same URL.
+### Windows
 
-> **Windows limitation:** The Rtools45 `static.posix` sysroot does not
-> provide `netcdf` or `libproj`. Consequently, the following VTK modules
-> are **disabled** in the Windows pre-built libraries: `VTK_IONetCDF`,
-> `VTK_IOHDF`, `VTK_GeovisCore`, `VTK_RenderingCore`. Downstream
-> packages that require any of these modules cannot currently be built
-> on Windows with the pre-built libraries supplied by **rvtk**.
+The `configure.win` script also tries each strategy in order:
 
-Configuration results are stored in `inst/vtk.conf` and read at run time
-by `CppFlags()`, `LdFlags()`, and `VtkVersion()`.
+1.  The environment variable `VTK_DIR`.
+2.  Rtools45 `pacman` (queries installed packages; never installs
+    automatically).
+3.  Common Rtools45 / MSYS2 prefixes
+    (`/x86_64-w64-mingw32.static.posix`, `/ucrt64`, `/mingw64`, …).
+4.  Download pre-built static libraries built with the
+    `x86_64-w64-mingw32.static.posix` toolchain from
+    <https://github.com/astamm/rvtk/releases> as a fallback.
+
+> **Windows — disabled modules.** The Rtools45 `static.posix` sysroot
+> does not provide `netcdf` or `libproj`. Consequently, the following
+> VTK modules are **disabled** in the Windows pre-built libraries:
+> `VTK_IONetCDF`, `VTK_IOHDF`, `VTK_GeovisCore`, `VTK_RenderingCore`.
+> Downstream packages that require any of these modules cannot currently
+> be built on Windows.
+
+### Platform and VTK-strategy compatibility
+
+| Platform | VTK strategy                                            | Supported |
+|----------|---------------------------------------------------------|-----------|
+| macOS    | System (Homebrew, shared)                               | ✔         |
+| macOS    | Pre-built static (automatic fallback)                   | ✔         |
+| macOS    | Custom `VTK_DIR` (static or shared)                     | ✔         |
+| Linux    | System (apt / pkg-config, shared)                       | ✔         |
+| Linux    | Pre-built static (automatic fallback)                   | ✔         |
+| Linux    | Custom `VTK_DIR` (static or shared)                     | ✔         |
+| Windows  | Pre-built static (automatic fallback)                   | ✔         |
+| Windows  | Pre-built shared DLLs (`VTK_LINK_TYPE=shared`)          | ✔         |
+| Windows  | Custom `VTK_DIR` with static `.a` libs                  | ✔         |
+| Windows  | Custom `VTK_DIR` / pacman / MSYS2 with static `.a` libs | ✔         |
+| Windows  | Custom `VTK_DIR` / pacman / MSYS2 with shared libs only | ✔         |
+
+> [!NOTE]
+>
+> ### Windows: choosing static vs. shared on the pre-built fallback
+>
+> By default the pre-built fallback downloads static `.a` libraries,
+> which is the right choice for CRAN packages (no DLL dependencies for
+> end users, no run-time path configuration).
+>
+> To opt into the pre-built shared-DLL build instead, set the
+> `VTK_LINK_TYPE` environment variable **before** installing **rvtk**:
+>
+> ``` sh
+> VTK_LINK_TYPE=shared Rscript -e 'pak::pak("astamm/rvtk")'
+> ```
+>
+> or in an R session:
+>
+> ``` r
+> Sys.setenv(VTK_LINK_TYPE = "shared")
+> pak::pak("astamm/rvtk")
+> ```
+>
+> When `VTK_LINK_TYPE=shared` the installer downloads
+> `vtk-X.Y.Z-shared-posix-x64.zip`, places the DLLs in `inst/vtk-dlls/`,
+> and records `VTK_LINK=shared` in `vtk.conf`. An `.onLoad` hook
+> prepends that directory to `PATH` via `Sys.setenv()` when rvtk is
+> loaded, so downstream packages require no extra configuration.
+>
+> Configuration results are stored in `inst/vtk.conf` and read at run
+> time by `CppFlags()`, `LdFlags()`, and `VtkVersion()`.
+
+> [!IMPORTANT]
+>
+> ### Downstream package developers using Windows shared VTK
+>
+> When **rvtk** is installed with `VTK_LINK_TYPE=shared` (or when a
+> system installation with only shared libs is detected), downstream
+> packages link against VTK `.dll.a` import libraries and load the VTK
+> DLLs from rvtk’s `inst/vtk-dlls/` at run time.
+>
+> This has two implications that downstream package authors should
+> communicate to their users:
+>
+> 1.  **rvtk and the downstream package must be kept in sync.** The
+>     downstream package is compiled against the specific VTK version
+>     (and DLL ABI) shipped with the rvtk version installed at compile
+>     time. If rvtk is later updated to a new VTK version (e.g. 9.5 →
+>     9.6), the downstream package must be **recompiled** against the
+>     new rvtk to match the new DLL names
+>     (e.g. `vtkCommonCore-9.6.dll`). Binary packages compiled against
+>     an older rvtk will fail to load.
+>
+> 2.  **DLL footprint grows in rvtk only.** The VTK DLLs are staged
+>     inside **rvtk**’s own `inst/vtk-dlls/` directory. Downstream
+>     packages do **not** receive a copy — they rely on rvtk’s `.onLoad`
+>     hook prepending that directory to `PATH` at run time. Each
+>     additional VTK module added to the pre-built DLL set therefore
+>     increases the install-time and CRAN size cost of **rvtk** only,
+>     not of downstream packages. To request additional modules, open an
+>     issue on the rvtk repository.
+>
+> > For CRAN submissions, the static pre-built build (default) is
+> > recommended because it has no run-time coupling to rvtk’s DLLs and
+> > is self-contained within the downstream package binary.
 
 ## Installation
 

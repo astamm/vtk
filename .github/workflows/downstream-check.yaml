@@ -1,0 +1,327 @@
+# Workflow: build and check a minimal downstream R package that depends on rvtk.
+#
+# The downstream package ("rvtktest") follows the README guidelines exactly:
+#   - Imports rvtk
+#   - Uses configure / configure.win to call rvtk::CppFlags() / rvtk::LdFlagsFile()
+#   - Defines one cpp11-backed C++ function that #includes <vtkPolyData.h>
+#
+# Three VTK supply strategies are exercised per platform:
+#   system         – VTK installed by the OS package manager (shared libs)
+#   prebuilt-static – rvtk downloads its own pre-built static archives automatically
+#   built-shared   – VTK built from source with BUILD_SHARED_LIBS=ON (macOS/Linux only)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+name: downstream-check.yaml
+
+permissions: read-all
+
+# ---------------------------------------------------------------------------
+# Version pinned in one place so it is trivial to bump.
+# Must match the version used by rvtk's own pre-built archive.
+# ---------------------------------------------------------------------------
+env:
+  VTK_VERSION: "9.5.2"
+  VTK_SHORT:   "9.5"       # X.Y used for the include directory vtk-X.Y
+
+jobs:
+  downstream-check:
+    runs-on: ${{ matrix.config.os }}
+
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }}, VTK ${{ matrix.config.vtk }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          # ── macOS ──────────────────────────────────────────────────────────────
+          - {os: macos-latest,   r: 'release', vtk: 'system'}
+          - {os: macos-latest,   r: 'release', vtk: 'prebuilt-static'}
+          - {os: macos-latest,   r: 'release', vtk: 'built-shared'}
+          # ── Windows ────────────────────────────────────────────────────────────
+          - {os: windows-latest, r: 'release', vtk: 'system'}
+          - {os: windows-latest, r: 'release', vtk: 'prebuilt-static'}
+          - {os: windows-latest, r: 'release', vtk: 'prebuilt-shared'}
+          # ── Linux ──────────────────────────────────────────────────────────────
+          - {os: ubuntu-latest,  r: 'release', vtk: 'system'}
+          - {os: ubuntu-latest,  r: 'release', vtk: 'prebuilt-static'}
+          - {os: ubuntu-latest,  r: 'release', vtk: 'built-shared'}
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+
+    steps:
+      # ── 1. Checkout rvtk itself ───────────────────────────────────────────────
+      - uses: actions/checkout@v6
+        with:
+          path: rvtk
+          ref: windows-vtk-discovery
+
+      # ── 2. R setup ───────────────────────────────────────────────────────────
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.r }}
+          use-public-rspm: true
+
+      # ── 3a. System VTK ───────────────────────────────────────────────────────
+      - name: Install system VTK (macOS – Homebrew)
+        if: runner.os == 'macOS' && matrix.config.vtk == 'system'
+        run: brew install vtk
+
+      - name: Install system VTK (Linux – apt)
+        if: runner.os == 'Linux' && matrix.config.vtk == 'system'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libvtk9-dev || sudo apt-get install -y libvtk-dev
+
+      - name: Install system VTK (Windows – Rtools45 pacman)
+        if: runner.os == 'Windows' && matrix.config.vtk == 'system'
+        shell: bash
+        run: pacman -S --noconfirm mingw-w64-ucrt-x86_64-vtk
+
+      # ── 3b. Built VTK with shared libs – restore from cache ──────────────────
+      - name: Cache built shared VTK
+        if: matrix.config.vtk == 'built-shared'
+        id: cache-vtk-shared
+        uses: actions/cache@v5
+        with:
+          path: ~/vtk-shared-install
+          # Bump the trailing integer when the CMake options change.
+          key: vtk-${{ env.VTK_VERSION }}-shared-${{ runner.os }}-${{ runner.arch }}-v3
+
+      - name: Install build tools for VTK (Linux)
+        if: runner.os == 'Linux' && matrix.config.vtk == 'built-shared' && steps.cache-vtk-shared.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake ninja-build libgl1-mesa-dev libxt-dev
+
+      - name: Install build tools for VTK (macOS)
+        if: runner.os == 'macOS' && matrix.config.vtk == 'built-shared' && steps.cache-vtk-shared.outputs.cache-hit != 'true'
+        run: brew install cmake ninja
+
+      - name: Download VTK source
+        if: matrix.config.vtk == 'built-shared' && steps.cache-vtk-shared.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          curl -fsSL \
+            "https://www.vtk.org/files/release/${{ env.VTK_SHORT }}/VTK-${{ env.VTK_VERSION }}.tar.gz" \
+            -o VTK-src.tar.gz
+          tar xzf VTK-src.tar.gz
+
+      - name: Configure VTK (shared libs, minimal modules)
+        if: matrix.config.vtk == 'built-shared' && steps.cache-vtk-shared.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          cmake -S "VTK-${{ env.VTK_VERSION }}" -B vtk-build \
+            -G Ninja \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$HOME/vtk-shared-install" \
+            -DVTK_BUILD_ALL_MODULES=OFF \
+            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOXML=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+
+      - name: Build and install VTK (shared libs)
+        if: matrix.config.vtk == 'built-shared' && steps.cache-vtk-shared.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          cmake --build vtk-build --parallel $(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.logicalcpu)
+          cmake --install vtk-build
+
+      - name: Expose VTK_DIR for built-shared
+        if: matrix.config.vtk == 'built-shared'
+        shell: bash
+        run: echo "VTK_DIR=$HOME/vtk-shared-install" >> "$GITHUB_ENV"
+
+      # ── 4. Install R packages needed by the build ─────────────────────────────
+      # working-directory: rvtk makes setup-r-dependencies read the rvtk
+      # DESCRIPTION and install rvtk from local source (no CRAN lookup needed).
+      # The extra-packages are installed into the same managed library path,
+      # which persists correctly across all subsequent steps on every platform.
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: rvtk
+          extra-packages: |
+            any::rcmdcheck
+            any::usethis
+            any::withr
+            any::cpp11
+            any::roxygen2
+            any::devtools
+            any::decor
+
+      # ── 5. Install rvtk from the checked-out source ───────────────────────────
+      #
+      # This runs rvtk's own configure script, which detects VTK (system,
+      # built-shared via VTK_DIR, or falls back to downloading prebuilt-static)
+      # and writes inst/vtk.conf.  Downstream package configuration then reads
+      # those flags by calling rvtk::CppFlags() / rvtk::LdFlagsFile().
+      # setup-r-dependencies above already installed rvtk from local source,
+      # but we reinstall here to ensure it ran configure with the right VTK_DIR.
+      - name: Install rvtk from source
+        shell: Rscript {0}
+        working-directory: rvtk
+        env:
+          # For the prebuilt-shared strategy, tell winlibs.R to download the
+          # shared-DLL build instead of the default static build.
+          VTK_LINK_TYPE: ${{ (matrix.config.vtk == 'prebuilt-shared') && 'shared' || '' }}
+        run: pak::local_install(upgrade = FALSE)
+
+      # ── 6. Scaffold the downstream package with usethis ───────────────────────
+      #
+      # usethis::create_package() gives us a well-formed DESCRIPTION, NAMESPACE
+      # skeleton and R/ directory.  usethis::use_cpp11() then:
+      #   - adds cpp11 to LinkingTo in DESCRIPTION
+      #   - creates src/ with a placeholder cpp file
+      #   - runs cpp11::cpp_register() once
+      # We then replace the placeholder C++ source with our own VTK smoke-test,
+      # add the rvtk import stub, and run cpp11::cpp_register() once more so
+      # src/cpp11.cpp and R/cpp11.R reflect our final function.
+      - name: Scaffold downstream package (R)
+        shell: Rscript {0}
+        run: |
+          pkg <- file.path(Sys.getenv("RUNNER_TEMP"), "rvtktest")
+
+          # ── create_package ──────────────────────────────────────────────
+          usethis::create_package(
+            path  = pkg,
+            fields = list(
+              Title       = "Minimal Package to Test rvtk Integration",
+              Description = "A minimal package that links against VTK via rvtk.",
+              Version     = "0.0.1",
+              License     = "MIT + file LICENSE",
+              SystemRequirements = "VTK >= 9.1.0"
+            ),
+            open  = FALSE,
+            rstudio = FALSE
+          )
+
+          # ── rvtk in Imports ─────────────────────────────────────────────
+          withr::with_dir(pkg, usethis::use_package("rvtk"))
+
+          # ── package-level doc skeleton (adds @keywords internal _PACKAGE) ─
+          withr::with_dir(pkg, usethis::use_package_doc())
+
+          # ── cpp11: adds LinkingTo, creates src/, runs cpp_register ──────
+          withr::with_dir(pkg, usethis::use_cpp11())
+
+          # ── replace placeholder C++ with our VTK smoke-test ─────────────
+          # Remove the example file created by use_cpp11().
+          unlink(file.path(pkg, "src", "code.cpp"))
+
+          writeLines(
+            c(
+              "// vtk_poly_data.cpp - minimal VTK smoke-test via cpp11",
+              "",
+              "#include <cpp11.hpp>",
+              "",
+              "// VTK headers under test",
+              "#include <vtkNew.h>",
+              "#include <vtkPolyData.h>",
+              "",
+              "[[cpp11::register]]",
+              "int vtk_poly_data_npoints() {",
+              "  vtkNew<vtkPolyData> pd;",
+              "  return static_cast<int>(pd->GetNumberOfPoints());",
+              "}"
+            ),
+            file.path(pkg, "src", "vtk_poly_data.cpp")
+          )
+
+          # ── rvtk import stub (silences R CMD check note) ─────────────────
+          # roxygen2 will pick up the @importFrom tag and write the NAMESPACE.
+          writeLines(
+            c("#' @importFrom rvtk CppFlags LdFlagsFile", "NULL"),
+            file.path(pkg, "R", "rvtk_imports.R")
+          )
+
+          # ── re-register so src/cpp11.cpp + R/cpp11.R match our function ──
+          cpp11::cpp_register(pkg)
+
+          # ── propagate PKG_DIR to subsequent steps ────────────────────────
+          # devtools::document() is called AFTER the configure/cleanup scripts
+          # and src/Makevars.in are in place, so that it does not attempt to
+          # compile the package before those files exist.
+          cat(sprintf("PKG_DIR=%s\n", pkg), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
+
+      # ── 7. Add rvtk configure / cleanup scripts and src/Makevars.in ──────────
+      #
+      # These are shell scripts and a Makefile template; writing them from bash
+      # is cleaner than embedding multi-line strings inside an R heredoc.
+      - name: Add rvtk configure/cleanup scripts
+        shell: bash
+        run: |
+          PKG="$PKG_DIR"
+
+          # ---- src/Makevars.in ------------------------------------------
+          printf 'PKG_CPPFLAGS = @VTK_CPPFLAGS@\nPKG_LIBS     = @VTK_LIBS@\n' \
+            > "$PKG/src/Makevars.in"
+
+          # ---- configure ------------------------------------------------
+          cat > "$PKG/configure" << 'EOF'
+          #!/bin/sh
+          set -e
+          : "${R_HOME:=$(R RHOME)}"
+          Rscript="${R_HOME}/bin/Rscript"
+          VTK_CPPFLAGS="$("${Rscript}" --vanilla -e "rvtk::CppFlags()")"
+          VTK_LIBS="$("${Rscript}" --vanilla -e "rvtk::LdFlagsFile('src/vtk_libs.rsp')")"
+          sed -e "s|@VTK_CPPFLAGS@|${VTK_CPPFLAGS}|g" \
+              -e "s|@VTK_LIBS@|${VTK_LIBS}|g" \
+              src/Makevars.in > src/Makevars
+          EOF
+          # Strip leading spaces (heredoc inside a script is indented).
+          # -i.bak is portable: BSD sed (macOS) requires a suffix; GNU sed (Linux) accepts it.
+          sed -i.bak 's/^[[:space:]]*//' "$PKG/configure" && rm -f "$PKG/configure.bak"
+          chmod +x "$PKG/configure"
+
+          # ---- configure.win --------------------------------------------
+          printf '#!/bin/sh\n./configure\n' > "$PKG/configure.win"
+          chmod +x "$PKG/configure.win"
+
+          # ---- cleanup --------------------------------------------------
+          printf '#!/bin/sh\nrm -f src/Makevars src/vtk_libs.rsp\n' > "$PKG/cleanup"
+          chmod +x "$PKG/cleanup"
+
+          # ---- cleanup.win ----------------------------------------------
+          printf '#!/bin/sh\n./cleanup\n' > "$PKG/cleanup.win"
+          chmod +x "$PKG/cleanup.win"
+
+          # ---- .Rbuildignore additions ----------------------------------
+          printf '^src/Makevars$\n^src/vtk_libs\.rsp$\n' >> "$PKG/.Rbuildignore"
+
+      # ── 8. Generate NAMESPACE and man/ from roxygen tags ──────────────────────
+      #
+      # Use roxygen2::roxygenise() with load_code = NULL so that the package is
+      # NOT compiled at this stage.  All roxygen tags in rvtktest live in plain
+      # R files (R/cpp11.R, R/rvtk_imports.R, R/rvtktest-package.R) and require
+      # no runtime introspection — skipping compilation is safe here.
+      # src/Makevars is generated by the configure script invoked by R CMD check
+      # in the next step, so no pre-generation is needed.
+      - name: Document downstream package
+        shell: Rscript {0}
+        run: roxygen2::roxygenise(Sys.getenv("PKG_DIR"), load_code = NULL)
+
+      # ── 9. R CMD check ────────────────────────────────────────────────────────
+      - name: Check downstream package
+        shell: Rscript {0}
+        env:
+          # Propagate VTK_DIR so that if the check re-runs configure it still
+          # finds the same VTK tree (relevant for built-shared).
+          VTK_DIR: ${{ env.VTK_DIR }}
+        run: |
+          rcmdcheck::rcmdcheck(
+            path   = Sys.getenv("PKG_DIR"),
+            args   = c("--no-manual", "--no-vignettes", "--ignore-vignettes"),
+            error_on = "error",
+            check_dir = file.path(Sys.getenv("RUNNER_TEMP"), "check")
+          )

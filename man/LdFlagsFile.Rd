@@ -8,8 +8,8 @@ LdFlagsFile(path, os_type = .Platform$OS.type)
 }
 \arguments{
 \item{path}{Path (relative to the package source root, i.e. where
-\code{configure} runs) to the response file to write, e.g.
-\code{"src/vtk_libs.rsp"}.}
+\code{configure} runs) to the response file to write on Windows, e.g.
+\code{"src/vtk_libs.rsp"}.  Ignored on non-Windows platforms.}
 
 \item{os_type}{A string identifying the operating-system type, defaulting to
 \code{.Platform$OS.type}.  Override to \code{"windows"} or \code{"unix"} in tests to
@@ -17,9 +17,10 @@ exercise the Windows response-file branch without needing a Windows
 environment.}
 }
 \value{
-Invisibly, the string to embed in \code{Makevars} (either \verb{@path} on
-Windows or the raw flags on other platforms).  The string is also written
-to stdout so that shell command substitution captures it.
+Invisibly, the string to embed in \code{configure} (either
+\verb{@basename(path)} on Windows or the raw flags on other platforms).  The
+string is also written to stdout so that shell command substitution
+captures it.
 }
 \description{
 On Windows the full set of VTK linker flags can exceed the 8 191-character
@@ -28,17 +29,19 @@ the list.  This function writes the flags to a plain-text response file that
 the linker reads via the \verb{@file} syntax, keeping the command line short.
 }
 \details{
-Intended to be called from a downstream package's \code{configure} script:
+Intended to be called from a downstream package's \code{configure} or
+\code{configure.win} script:
 
 \if{html}{\out{<div class="sourceCode sh">}}\preformatted{VTK_LIBS="$("$\{R_HOME\}/bin/Rscript" --vanilla -e \\
   "rvtk::LdFlagsFile('src/vtk_libs.rsp')")"
-# VTK_LIBS is now the short string "@src/vtk_libs.rsp"
-sed -e "s|@VTK_LIBS@|$\{VTK_LIBS\}|g" src/Makevars.in > src/Makevars
+# VTK_LIBS is now the short string "@src/vtk_libs.rsp" on Windows,
+# or the raw flags on macOS/Linux.
 }\if{html}{\out{</div>}}
 
-On non-Windows platforms the flags are still written to \code{path} (so the
-workflow is identical on all platforms), and the returned \verb{@path} string
-is equally valid because GCC/Clang also support response files.
+On Windows the flags are written to \code{path} and the function returns the
+\verb{@basename(path)} token for the linker.  On macOS and Linux, \code{ld} does not
+reliably support \verb{@file} response files at the compiler-driver level, so
+no file is written and the raw flags are returned directly.
 }
 \examples{
 rsp <- file.path(tempdir(), "vtk_libs.rsp")

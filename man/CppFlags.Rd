@@ -8,16 +8,16 @@ CppFlags()
 }
 \value{
 A single character string of compiler flags, written to stdout (so
-that it can be captured by \verb{$(shell ...)} in a \code{Makefile}) and returned
-invisibly.
+that it can be captured by shell command substitution in \code{configure}) and
+returned invisibly.
 }
 \description{
 Returns the C pre-processor flags (\code{-I} paths) required to compile C++ code
 that includes VTK headers.  Intended to be called from a downstream
-package's \code{src/Makevars} or \code{src/Makevars.win}:
+package's \code{configure} or \code{configure.win} script:
 }
 \details{
-\if{html}{\out{<div class="sourceCode makefile">}}\preformatted{PKG_CPPFLAGS = $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript" -e "rvtk::CppFlags()")
+\if{html}{\out{<div class="sourceCode sh">}}\preformatted{VTK_CPPFLAGS="$("$\{R_HOME\}/bin/Rscript" --vanilla -e "rvtk::CppFlags()")"
 }\if{html}{\out{</div>}}
 }
 \examples{

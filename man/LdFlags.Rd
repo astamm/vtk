@@ -8,17 +8,21 @@ LdFlags()
 }
 \value{
 A single character string of linker flags, written to stdout (so
-that it can be captured by \verb{$(shell ...)} in a \code{Makefile}) and returned
-invisibly.
+that it can be captured by shell command substitution in \code{configure}) and
+returned invisibly.
 }
 \description{
 Returns the linker flags (\code{-L} paths and \code{-l} library names) required to
 link C++ code against VTK.  Intended to be called from a downstream
-package's \code{src/Makevars} or \code{src/Makevars.win}:
+package's \code{configure} or \code{configure.win} script:
 }
 \details{
-\if{html}{\out{<div class="sourceCode makefile">}}\preformatted{PKG_LIBS = $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript" -e "rvtk::LdFlags()")
+\if{html}{\out{<div class="sourceCode sh">}}\preformatted{VTK_LIBS="$("$\{R_HOME\}/bin/Rscript" --vanilla -e "rvtk::LdFlags()")"
 }\if{html}{\out{</div>}}
+
+On Windows the full set of VTK linker flags can exceed the 8 191-character
+command-line limit.  Prefer \code{LdFlagsFile()} on Windows to write the flags
+to a response file instead.
 }
 \examples{
 flags <- LdFlags()

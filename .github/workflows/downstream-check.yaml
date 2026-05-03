@@ -59,7 +59,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           path: rvtk
-          ref: windows-vtk-discovery
 
       # ── 2. R setup ───────────────────────────────────────────────────────────
       - uses: r-lib/actions/setup-pandoc@v2

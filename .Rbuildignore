@@ -2,6 +2,7 @@
 ^\.Rproj\.user$
 ^\.github$
 ^README\.Rmd$
+^README\.qmd$
 ^LICENSE\.md$
 ^[.]?air[.]toml$
 ^\.vscode$

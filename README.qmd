@@ -55,11 +55,6 @@ The `configure.win` script also tries each strategy in order:
    `x86_64-w64-mingw32.static.posix` toolchain from
    <https://github.com/astamm/rvtk/releases> as a fallback.
 
-> **Windows — static libs only.** Only pure static archives (`.a`) are used
-> on Windows; DLL-backed import libraries (`.dll.a`) are explicitly excluded.
-> If a system or pacman-installed VTK provides only shared libraries the
-> script falls through to the pre-built static fallback automatically.
-
 > **Windows — disabled modules.** The Rtools45 `static.posix` sysroot does
 > not provide `netcdf` or `libproj`. Consequently, the following VTK modules
 > are **disabled** in the Windows pre-built libraries: `VTK_IONetCDF`,
@@ -128,14 +123,14 @@ to their users:
    names (e.g. `vtkCommonCore-9.6.dll`). Binary packages compiled against
    an older rvtk will fail to load.
 
-2. **DLL footprint will grow with VTK module requirements.**
-   The current pre-built DLL set contains only the minimal modules needed by
-   the rvtk package itself. Downstream packages that require additional VTK
-   modules (e.g. `vtkRenderingOpenGL2`, `vtkFiltersCore`) must request that
-   those modules be added to the pre-built DLL set by opening an issue on the
-   rvtk repository. Each additional module increases the size of
-   `inst/vtk-dlls/` for **all** downstream packages, which affects install
-   time and CRAN size limits.
+2. **DLL footprint grows in rvtk only.**
+   The VTK DLLs are staged inside **rvtk**'s own `inst/vtk-dlls/` directory.
+   Downstream packages do **not** receive a copy — they rely on rvtk's
+   `.onLoad` hook prepending that directory to `PATH` at run time. Each
+   additional VTK module added to the pre-built DLL set therefore increases
+   the install-time and CRAN size cost of **rvtk** only, not of downstream
+   packages. To request additional modules, open an issue on the rvtk
+   repository.
 
 > For CRAN submissions, the static pre-built build (default) is recommended
 > because it has no run-time coupling to rvtk's DLLs and is

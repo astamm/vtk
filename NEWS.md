@@ -4,60 +4,53 @@
 
 * **Windows VTK discovery** (`configure.win` rewritten). The package now
   searches for a system VTK installation on Windows before falling back to the
-  pre-built static libraries. Detection order:
+  pre-built libraries. Detection order:
   1. `VTK_DIR` environment variable.
   2. Rtools45 `pacman` (queries installed packages; never installs
      automatically).
   3. Common Rtools45 / MSYS2 prefixes (`/x86_64-w64-mingw32.static.posix`,
      `/ucrt64`, `/mingw64`, …).
-  4. Automatic download of pre-built static libraries (unchanged fallback).
-  Only static `.a` archives are used; DLL-backed `.dll.a` import libraries are
-  explicitly excluded. A system VTK that provides only shared libraries is
-  therefore skipped and the pre-built fallback is used instead.
+  4. Automatic download of pre-built libraries (fallback — see below).
+  Both static (`.a`) and shared (`.dll.a` import libs + DLLs) system
+  installations are accepted.
 
 * **Windows shared-DLL support** (`configure.win`, `tools/winlibs.R`,
-  `R/vtk.R`). Windows now fully supports shared VTK libraries:
-  - System installations (via `VTK_DIR`, pacman, or MSYS2 prefixes) that
-    provide only `.dll.a` import libs are now accepted; previously they
-    caused a silent fall-through to the pre-built static download.
-  - A new pre-built shared-DLL build (`vtk-X.Y.Z-shared-posix-x64.zip`) is
-    available as an alternative to the existing static build.  Select it by
-    setting `VTK_LINK_TYPE=shared` before installing **rvtk**.
-  - VTK DLLs are staged in `inst/vtk-dlls/`. An `.onLoad` hook prepends
-    that directory to `PATH` via `Sys.setenv()` when rvtk is loaded,
+  `R/vtk.R`, `R/zzz.R`). Windows now fully supports shared VTK libraries:
+  - System or pacman/MSYS2 installations that provide `.dll.a` import libs are
+    accepted and used directly.
+  - A pre-built shared-DLL build (`vtk-X.Y.Z-shared-posix-x64.zip`) is
+    available as an alternative to the existing static build. Select it by
+    setting `VTK_LINK_TYPE=shared` before installing **rvtk** (default is
+    `static`).
+  - VTK DLLs are staged in rvtk's own `inst/vtk-dlls/`. An `.onLoad` hook
+    prepends that directory to `PATH` via `Sys.setenv()` when rvtk is loaded,
     making the DLLs visible to all downstream packages that declare
-    `Imports: rvtk` without any manual PATH manipulation. The original
-    `PATH` is restored in `.onUnload()` to avoid persistent side effects.
-    (`AddDllDirectory()` is not exposed as an R-level function;
-    `PATH` mutation with save/restore is R's own canonical approach,
-    used internally by `library.dynam()`.)
-  - The shared-DLL release artifact is built with the same
-    `x86_64-w64-mingw32.static.posix` toolchain and
-    `-static-libgcc -static-libstdc++`, so the resulting DLLs have no
-    dependency on external MSYS2 runtime DLLs.
+    `Imports: rvtk` without any manual PATH manipulation. The original `PATH`
+    is restored in `.onUnload()`. Downstream packages do **not** receive a copy
+    of the DLLs — they piggyback on rvtk's staged directory at run time.
 
 * **`build-vtk-libs.yml`**: new `build-windows-shared` CI job produces
-  `vtk-X.Y.Z-shared-posix-x64.zip` and publishes it alongside the existing
-  static archive in each GitHub release.
+  `vtk-X.Y.Z-shared-posix-x64.zip` alongside the existing static archive.
 
 ### Bug fixes
 
 * **Unix pre-built static libraries survive `R CMD build`** (`configure`,
-  `R/vtk.R`, `cleanup`). Previously the pre-built archive was extracted to
-  `$(pwd)/vtk-prebuilt/` at configure time; because `pak` / `R CMD build`
-  creates a source tarball in a temporary directory, these paths became
-  dangling after installation. The archive is now extracted to
+  `R/vtk.R`, `cleanup`). The pre-built archive is now extracted to
   `inst/prebuilt/` so that headers and static libraries ship inside the
   installed package. `read_vtk_conf()` resolves the actual paths at run time
-  via `system.file("prebuilt", package = "rvtk")`, mirroring the approach
-  already used for Windows.
+  via `system.file("prebuilt", package = "rvtk")`, mirroring the Windows
+  approach and surviving `R CMD build` temp-dir cycles.
 
 ### Internal
 
-* New CI workflow (`.github/workflows/downstream-check.yaml`) builds and
-  checks a minimal downstream package against rvtk across all supported
-  platform × VTK-strategy combinations (system, pre-built static, built
-  shared).
+* Removed dead variable `lib_root` from `tools/winlibs.R` (assigned but
+  never read).
+* Removed dead variable `all_libs_full` from the Windows static branch of
+  `read_vtk_conf()` in `R/vtk.R` (assigned but never read; `lib_flags` is
+  built entirely from `-l` short names).
+* New CI workflow (`.github/workflows/downstream-check.yaml`) builds and checks
+  a minimal downstream package against rvtk across all supported platform ×
+  VTK-strategy combinations (system, pre-built static, pre-built shared).
 
 # rvtk 0.1.2
 

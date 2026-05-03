@@ -2,15 +2,15 @@
 #'
 #' Returns the C pre-processor flags (`-I` paths) required to compile C++ code
 #' that includes VTK headers.  Intended to be called from a downstream
-#' package's `src/Makevars` or `src/Makevars.win`:
+#' package's `configure` or `configure.win` script:
 #'
-#' ```makefile
-#' PKG_CPPFLAGS = $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript" -e "rvtk::CppFlags()")
+#' ```sh
+#' VTK_CPPFLAGS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::CppFlags()")"
 #' ```
 #'
 #' @return A single character string of compiler flags, written to stdout (so
-#'   that it can be captured by `$(shell ...)` in a `Makefile`) and returned
-#'   invisibly.
+#'   that it can be captured by shell command substitution in `configure`) and
+#'   returned invisibly.
 #' @examples
 #' flags <- CppFlags()
 #' @export
@@ -24,15 +24,19 @@ CppFlags <- function() {
 #'
 #' Returns the linker flags (`-L` paths and `-l` library names) required to
 #' link C++ code against VTK.  Intended to be called from a downstream
-#' package's `src/Makevars` or `src/Makevars.win`:
+#' package's `configure` or `configure.win` script:
 #'
-#' ```makefile
-#' PKG_LIBS = $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript" -e "rvtk::LdFlags()")
+#' ```sh
+#' VTK_LIBS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::LdFlags()")"
 #' ```
 #'
+#' On Windows the full set of VTK linker flags can exceed the 8 191-character
+#' command-line limit.  Prefer `LdFlagsFile()` on Windows to write the flags
+#' to a response file instead.
+#'
 #' @return A single character string of linker flags, written to stdout (so
-#'   that it can be captured by `$(shell ...)` in a `Makefile`) and returned
-#'   invisibly.
+#'   that it can be captured by shell command substitution in `configure`) and
+#'   returned invisibly.
 #' @examples
 #' flags <- LdFlags()
 #' @export
@@ -49,30 +53,33 @@ LdFlags <- function() {
 #' the list.  This function writes the flags to a plain-text response file that
 #' the linker reads via the `@file` syntax, keeping the command line short.
 #'
-#' Intended to be called from a downstream package's `configure` script:
+#' Intended to be called from a downstream package's `configure` or
+#' `configure.win` script:
 #'
 #' ```sh
 #' VTK_LIBS="$("${R_HOME}/bin/Rscript" --vanilla -e \
 #'   "rvtk::LdFlagsFile('src/vtk_libs.rsp')")"
-#' # VTK_LIBS is now the short string "@src/vtk_libs.rsp"
-#' sed -e "s|@VTK_LIBS@|${VTK_LIBS}|g" src/Makevars.in > src/Makevars
+#' # VTK_LIBS is now the short string "@src/vtk_libs.rsp" on Windows,
+#' # or the raw flags on macOS/Linux.
 #' ```
 #'
-#' On non-Windows platforms the flags are still written to `path` (so the
-#' workflow is identical on all platforms), and the returned `@path` string
-#' is equally valid because GCC/Clang also support response files.
+#' On Windows the flags are written to `path` and the function returns the
+#' `@basename(path)` token for the linker.  On macOS and Linux, `ld` does not
+#' reliably support `@file` response files at the compiler-driver level, so
+#' no file is written and the raw flags are returned directly.
 #'
 #' @param path Path (relative to the package source root, i.e. where
-#'   `configure` runs) to the response file to write, e.g.
-#'   `"src/vtk_libs.rsp"`.
+#'   `configure` runs) to the response file to write on Windows, e.g.
+#'   `"src/vtk_libs.rsp"`.  Ignored on non-Windows platforms.
 #' @param os_type A string identifying the operating-system type, defaulting to
 #'   `.Platform$OS.type`.  Override to `"windows"` or `"unix"` in tests to
 #'   exercise the Windows response-file branch without needing a Windows
 #'   environment.
 #'
-#' @return Invisibly, the string to embed in `Makevars` (either `@path` on
-#'   Windows or the raw flags on other platforms).  The string is also written
-#'   to stdout so that shell command substitution captures it.
+#' @return Invisibly, the string to embed in `configure` (either
+#'   `@basename(path)` on Windows or the raw flags on other platforms).  The
+#'   string is also written to stdout so that shell command substitution
+#'   captures it.
 #' @examples
 #' rsp <- file.path(tempdir(), "vtk_libs.rsp")
 #' ref <- LdFlagsFile(rsp)
@@ -212,7 +219,6 @@ read_vtk_conf <- function(
       ## Exclude any .dll.a import libs that might co-exist with .a archives.
       all_libs <- list.files(lib_dir, pattern = "\\.a$", full.names = FALSE)
       all_libs <- all_libs[!grepl("\\.dll\\.a$", all_libs)]
-      all_libs_full <- file.path(lib_dir, all_libs)
       lib_flags <- paste(
         sprintf("-l%s", sub("\\.a$", "", sub("^lib", "", all_libs))),
         collapse = " "

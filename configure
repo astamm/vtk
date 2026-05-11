@@ -144,7 +144,8 @@ if test "${vtk_found}" = "no"; then
             esac ;;
         Linux)
             case "${_arch}" in
-                x86_64) _tarball="vtk-${VTK_PREBUILT_VERSION}-linux-x86_64.tar.gz" ;;
+                x86_64)  _tarball="vtk-${VTK_PREBUILT_VERSION}-linux-x86_64.tar.gz" ;;
+                aarch64) _tarball="vtk-${VTK_PREBUILT_VERSION}-linux-aarch64.tar.gz" ;;
                 *)
                     echo "ERROR: Unsupported Linux architecture '${_arch}'." >&2
                     exit 1 ;;

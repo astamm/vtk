@@ -119,7 +119,8 @@ read_vtk_conf <- function(
   path = NULL,
   os_type = .Platform$OS.type,
   sysname = Sys.info()[["sysname"]],
-  win_base_dir = NULL
+  win_base_dir = NULL,
+  unix_base_dir = NULL
 ) {
   if (is.null(path)) {
     path <- system.file("vtk.conf", package = "rvtk", mustWork = TRUE)
@@ -134,7 +135,11 @@ read_vtk_conf <- function(
   ## On Unix with pre-built static libraries, headers and libs live under
   ## inst/prebuilt/ inside the installed package.  Resolve them at runtime.
   if (os_type != "windows" && identical(conf[["VTK_PREBUILT"]], "yes")) {
-    base_dir <- system.file("prebuilt", package = "rvtk", mustWork = TRUE)
+    if (is.null(unix_base_dir)) {
+      base_dir <- system.file("prebuilt", package = "rvtk", mustWork = TRUE)
+    } else {
+      base_dir <- unix_base_dir
+    }
     base_dir <- normalizePath(base_dir, winslash = "/")
 
     inc_root <- file.path(base_dir, "include")

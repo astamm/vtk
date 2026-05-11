@@ -1,8 +1,9 @@
 # Package hooks --------------------------------------------------------
 
-## Saved PATH value before rvtk prepended the vtk-dlls directory.
-## Used by .onUnload to restore PATH cleanly.
-.vtk_original_path <- NULL
+## Mutable state environment – not subject to namespace binding locks.
+## .vtk_state$original_path stores the PATH value before rvtk modified it.
+.vtk_state <- new.env(parent = emptyenv())
+.vtk_state$original_path <- NULL
 
 .onLoad <- function(libname, pkgname) {
   ## On Windows, if rvtk was installed against a shared VTK build, the VTK
@@ -27,20 +28,18 @@
   conf <- tryCatch(read_vtk_conf(), error = function(e) NULL)
   dll_dir <- system.file("vtk-dlls", package = pkgname, lib.loc = libname)
   vtk_dll_dir <- if (!is.null(conf)) conf[["VTK_DLL_DIR"]] else NULL
-  ns <- environment(sys.function())
   .vtk_prepend_path(
     os_type = .Platform$OS.type,
     dll_dir = dll_dir,
     vtk_dll_dir = vtk_dll_dir,
-    ns = ns
+    ns = .vtk_state
   )
 }
 
 .onUnload <- function(libpath) {
   ## Restore PATH to the value it had before .onLoad prepended vtk-dlls,
   ## so that unloading rvtk leaves no persistent side effects.
-  ns <- asNamespace("rvtk")
-  .vtk_restore_path(os_type = .Platform$OS.type, ns = ns)
+  .vtk_restore_path(os_type = .Platform$OS.type, ns = .vtk_state)
 }
 
 # Internal helpers (extracted for testability) -------------------------

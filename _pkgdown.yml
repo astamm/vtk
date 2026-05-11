@@ -1,0 +1,9 @@
+url: https://astamm.github.io/rvtk/
+template:
+  bootstrap: 5
+
+news:
+  releases:
+  - text: "rvtk 0.1.3"
+    href: https://astamm.github.io/posts/2026-05-11-rvtk-013/
+

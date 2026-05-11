@@ -12,3 +12,4 @@ vtk-prebuilt/
 # IDE
 .Rproj.user/
 .Rhistory
+docs

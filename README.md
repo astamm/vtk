@@ -9,6 +9,9 @@
 [![R-CMD-check](https://github.com/astamm/rvtk/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/astamm/rvtk/actions/workflows/R-CMD-check.yaml)
 [![Codecov test
 coverage](https://codecov.io/gh/astamm/rvtk/graph/badge.svg)](https://app.codecov.io/gh/astamm/rvtk)
+[![pkgdown](https://github.com/astamm/rvtk/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/astamm/rvtk/actions/workflows/pkgdown.yaml)
+[![CRAN
+status](https://www.r-pkg.org/badges/version/rvtk)](https://CRAN.R-project.org/package=rvtk)
 <!-- badges: end -->
 
 **rvtk** is an infrastructure package that makes the [Visualization

@@ -34,14 +34,21 @@ CppFlags <- function() {
 #' command-line limit.  Prefer `LdFlagsFile()` on Windows to write the flags
 #' to a response file instead.
 #'
+#' @param modules A character vector of VTK module names to link against,
+#'   e.g. `c("vtkIOLegacy", "vtkCommonCore")`.  When `NULL` (the default) all
+#'   available modules are included.  When non-`NULL`, only the requested
+#'   modules are linked, which avoids pulling in unneeded symbols (such as
+#'   AppKit/Cocoa symbols from rendering modules when using the pre-built
+#'   static bundle).
+#'
 #' @return A single character string of linker flags, written to stdout (so
 #'   that it can be captured by shell command substitution in `configure`) and
 #'   returned invisibly.
 #' @examples
 #' flags <- LdFlags()
 #' @export
-LdFlags <- function() {
-  flags <- read_vtk_conf()[["VTK_LIBS"]]
+LdFlags <- function(modules = NULL) {
+  flags <- read_vtk_conf(modules = modules)[["VTK_LIBS"]]
   writeLines(flags)
   invisible(flags)
 }
@@ -71,6 +78,12 @@ LdFlags <- function() {
 #' @param path Path (relative to the package source root, i.e. where
 #'   `configure` runs) to the response file to write on Windows, e.g.
 #'   `"src/vtk_libs.rsp"`.  Ignored on non-Windows platforms.
+#' @param modules A character vector of VTK module names to link against,
+#'   e.g. `c("vtkIOLegacy", "vtkCommonCore")`.  When `NULL` (the default) all
+#'   available modules are included.  When non-`NULL`, only the requested
+#'   modules are linked, which avoids pulling in unneeded symbols (such as
+#'   AppKit/Cocoa symbols from rendering modules when using the pre-built
+#'   static bundle).
 #' @param os_type A string identifying the operating-system type, defaulting to
 #'   `.Platform$OS.type`.  Override to `"windows"` or `"unix"` in tests to
 #'   exercise the Windows response-file branch without needing a Windows
@@ -84,8 +97,8 @@ LdFlags <- function() {
 #' rsp <- file.path(tempdir(), "vtk_libs.rsp")
 #' ref <- LdFlagsFile(rsp)
 #' @export
-LdFlagsFile <- function(path, os_type = .Platform$OS.type) {
-  flags <- read_vtk_conf()[["VTK_LIBS"]]
+LdFlagsFile <- function(path, modules = NULL, os_type = .Platform$OS.type) {
+  flags <- read_vtk_conf(modules = modules)[["VTK_LIBS"]]
   if (os_type == "windows") {
     ## On Windows the flags string can exceed the 8191-char cmd.exe limit.
     ## Write them to a response file and return the short @file reference.
@@ -117,6 +130,7 @@ VtkVersion <- function() {
 
 read_vtk_conf <- function(
   path = NULL,
+  modules = NULL,
   os_type = .Platform$OS.type,
   sysname = Sys.info()[["sysname"]],
   win_base_dir = NULL,
@@ -155,6 +169,7 @@ read_vtk_conf <- function(
     conf[["VTK_CPPFLAGS"]] <- sprintf("-isystem%s", inc_dir)
 
     all_libs_full <- list.files(lib_dir, pattern = "\\.a$", full.names = TRUE)
+    all_libs_full <- filter_libs(all_libs_full, modules)
     lib_args <- paste(all_libs_full, collapse = " ")
     if (sysname == "Darwin") {
       conf[["VTK_LIBS"]] <- paste("-Wl,-all_load", lib_args)
@@ -210,6 +225,7 @@ read_vtk_conf <- function(
         pattern = "\\.dll\\.a$",
         full.names = FALSE
       )
+      all_libs <- filter_libs(all_libs, modules)
       lib_flags <- paste(
         sprintf("-l%s", sub("\\.dll\\.a$", "", sub("^lib", "", all_libs))),
         collapse = " "
@@ -224,6 +240,7 @@ read_vtk_conf <- function(
       ## Exclude any .dll.a import libs that might co-exist with .a archives.
       all_libs <- list.files(lib_dir, pattern = "\\.a$", full.names = FALSE)
       all_libs <- all_libs[!grepl("\\.dll\\.a$", all_libs)]
+      all_libs <- filter_libs(all_libs, modules)
       lib_flags <- paste(
         sprintf("-l%s", sub("\\.a$", "", sub("^lib", "", all_libs))),
         collapse = " "
@@ -254,4 +271,19 @@ read_vtk_conf <- function(
   }
 
   conf
+}
+
+## Filter a vector of library filenames (basenames or full paths) to only
+## those whose basename matches at least one of the requested module names.
+## If modules is NULL, all libraries are returned unchanged.
+filter_libs <- function(libs, modules) {
+  if (is.null(modules)) {
+    return(libs)
+  }
+  pattern <- paste0(
+    "(^|/)(lib)?(",
+    paste(modules, collapse = "|"),
+    ")(-[0-9]|\\.).*"
+  )
+  libs[grepl(pattern, libs, perl = TRUE)]
 }

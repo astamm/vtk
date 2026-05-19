@@ -16,20 +16,24 @@ Description: Provides pre-compiled static 'VTK' libraries and headers so that
     then tries 'Homebrew', followed by 'pkg-config'. On Linux it tries
     'pkg-config' and well-known system prefixes ('/usr', '/usr/local'). If no
     suitable system installation is found on macOS or Linux, pre-built static
-    libraries are downloaded automatically from the package's GitHub releases.
-    On Windows the package tries 'VTK_DIR', then 'Rtools45' 'pacman', then
-    common 'MSYS2' prefixes, accepting both static ('.a') and shared
-    ('.dll.a' import libs + DLLs) installations. When shared libraries are
-    used, the VTK DLLs are staged in 'inst/vtk-dlls/' and an '.onLoad' hook
-    prepends that directory to PATH via 'Sys.setenv()' when the package is
-    loaded, and restored in '.onUnload()'. The pre-built fallback downloads
-    static libraries by default; set 'VTK_LINK_TYPE=shared' before
-    installation to download the DLL build instead. Note that on Windows the
-    modules 'VTK_IONetCDF', 'VTK_IOHDF', 'VTK_GeovisCore', and
-    'VTK_RenderingCore' are disabled because 'netcdf' and 'libproj' are not
-    available in the 'Rtools45' 'static.posix' sysroot. Downstream packages
-    can declare 'Imports: rvtk' and obtain the correct compiler and linker
-    flags at install time via rvtk::CppFlags() and rvtk::LdFlagsFile().
+    libraries are downloaded automatically from the package's GitHub releases
+    for x86_64 and aarch64. On Windows the package tries 'VTK_DIR', then
+    'Rtools45' 'pacman', then common 'MSYS2' prefixes, accepting both static
+    ('.a') and shared ('.dll.a' import libs + DLLs) installations. When shared
+    libraries are used, the VTK DLLs are staged in 'inst/vtk-dlls/' and an
+    '.onLoad' hook prepends that directory to PATH via 'Sys.setenv()' when the
+    package is loaded, and restored in '.onUnload()'. The pre-built fallback
+    downloads static libraries by default; set 'VTK_LINK_TYPE=shared' before
+    installation to download the DLL build instead. The pre-built bundles
+    include the following VTK modules (plus their transitive dependencies):
+    'VTK_IOLegacy', 'VTK_IOXML', 'VTK_IOCore', 'VTK_CommonCore', and
+    'VTK_CommonDataModel'. Note that on Windows 'VTK_IONetCDF', 'VTK_IOHDF',
+    'VTK_GeovisCore', and 'VTK_RenderingCore' are additionally disabled because
+    'netcdf' and 'libproj' are not available in the 'Rtools45' 'static.posix'
+    sysroot. Downstream packages can declare 'Imports: rvtk' and obtain the
+    correct compiler and linker flags at install time via rvtk::CppFlags() and
+    rvtk::LdFlagsFile(), optionally restricting linking to a subset of modules
+    via the 'modules' argument.
 License: MIT + file LICENSE
 Encoding: UTF-8
 URL: https://github.com/astamm/rvtk, https://astamm.github.io/rvtk/

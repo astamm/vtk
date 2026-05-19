@@ -1,5 +1,36 @@
 # rvtk (development version)
 
+### New features
+
+* **Linux aarch64 support.** The pre-built static fallback now provides a
+  `vtk-X.Y.Z-linux-aarch64.tar.gz` archive built on `ubuntu-24.04-arm`.
+  The `configure` script detects the host architecture and downloads the
+  correct archive automatically, so no user action is required.
+
+* **`modules` argument for `LdFlags()` and `LdFlagsFile()`.**
+  Both linker-flag functions now accept a `modules` character vector that
+  restricts linking to the named VTK modules (e.g.
+  `c("vtkIOLegacy", "vtkCommonCore")`).  When `NULL` (the default) all
+  available modules are included, preserving backward compatibility.
+
+  This is particularly important when using the pre-built static bundle on
+  macOS: the bundle contains the full VTK (including rendering modules that
+  reference `_NSEventTrackingRunLoopMode` from `AppKit.framework`).  Without
+  filtering, `-Wl,-all_load` forces those symbols into every downstream `.so`,
+  causing `dlopen()` failures at `R CMD check` time for packages that do not
+  actually use any rendering functionality.  Downstream packages should pass
+  only the modules they need:
+
+  ```sh
+  VTK_LIBS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::LdFlagsFile(
+    path    = 'src/vtk_libs.rsp',
+    modules = c('vtkIOLegacy', 'vtkCommonCore', ...)
+  )")"
+  ```
+
+* New internal helper `filter_libs()` implements the module-name matching used
+  by all three platform branches of `read_vtk_conf()`.
+
 # rvtk 0.1.3
 
 ### New features

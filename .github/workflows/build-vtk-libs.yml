@@ -555,11 +555,16 @@ jobs:
           retention-days: 7
 
   # ── Linux x86_64 musl (Alpine Linux) ──────────────────────────────────────
+  # NOTE: We intentionally do NOT use `container: image: alpine:3.22` here.
+  # GitHub Actions runs a glibc-linked Node.js binary for JS-based actions
+  # (checkout, cache, upload-artifact); that binary crashes immediately inside
+  # a musl container with "Exec format error" / SIGILL.  Instead, the job runs
+  # on ubuntu-latest and only the build steps are executed inside Alpine via
+  # an explicit `docker run`, which gives us a true musl build environment
+  # while keeping all GitHub Actions plumbing on the glibc host.
   build-linux-musl-x86_64:
     name: Linux x86_64 musl (Alpine)
     runs-on: ubuntu-latest
-    container:
-      image: alpine:3.22
     steps:
       - uses: actions/checkout@v6
 
@@ -570,13 +575,6 @@ jobs:
           path: install
           key: vtk-${{ env.VTK_VERSION }}-linux-musl-x86_64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
 
-      - name: Install build dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          apk add --no-cache \
-            cmake ninja g++ make curl \
-            linux-headers
-
       - name: Download VTK source
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
@@ -585,32 +583,36 @@ jobs:
           curl -fsSL "https://www.vtk.org/files/release/${MINOR}/VTK-${VER}.tar.gz" -o vtk-src.tar.gz
           tar -xzf vtk-src.tar.gz
 
-      - name: Configure VTK
+      - name: Build and install VTK inside Alpine container
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           VER="${{ env.VTK_VERSION }}"
-          mkdir build && cd build
-          cmake -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="$PWD/../install" \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DVTK_BUILD_ALL_MODULES=OFF \
-            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
-            -DVTK_MODULE_ENABLE_VTK_IOXML=YES \
-            -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
-            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
-            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
-            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-            -DCMAKE_C_FLAGS="-fPIC" \
-            -DCMAKE_CXX_FLAGS="-fPIC" \
-            ../VTK-${VER}
-
-      - name: Build and install VTK
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          cd build
-          ninja -j$(nproc)
-          ninja install
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            alpine:3.22 \
+            sh -c "
+              set -eux
+              apk add --no-cache cmake ninja g++ make curl linux-headers
+              mkdir -p build install
+              cd build
+              cmake -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=/work/install \
+                -DBUILD_SHARED_LIBS=OFF \
+                -DVTK_BUILD_ALL_MODULES=OFF \
+                -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
+                -DVTK_MODULE_ENABLE_VTK_IOXML=YES \
+                -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
+                -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
+                -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
+                -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+                -DCMAKE_C_FLAGS='-fPIC' \
+                -DCMAKE_CXX_FLAGS='-fPIC' \
+                /work/VTK-${VER}
+              ninja -j\$(nproc)
+              ninja install
+            "
 
       - name: Package archive
         run: |

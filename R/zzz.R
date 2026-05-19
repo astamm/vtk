@@ -1,9 +1,9 @@
 # Package hooks --------------------------------------------------------
 
 ## Mutable state environment – not subject to namespace binding locks.
-## .vtk_state$original_path stores the PATH value before rvtk modified it.
+## .vtk_original_path is assigned into this env by .vtk_prepend_path() and
+## read back by .vtk_restore_path().
 .vtk_state <- new.env(parent = emptyenv())
-.vtk_state$original_path <- NULL
 
 .onLoad <- function(libname, pkgname) {
   ## On Windows, if rvtk was installed against a shared VTK build, the VTK

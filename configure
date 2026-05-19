@@ -143,8 +143,18 @@ if test "${vtk_found}" = "no"; then
                     exit 1 ;;
             esac ;;
         Linux)
+            # Detect musl libc (Alpine Linux and similar)
+            _libc="glibc"
+            if ldd --version 2>&1 | grep -q musl; then
+                _libc="musl"
+            fi
             case "${_arch}" in
-                x86_64)  _tarball="vtk-${VTK_PREBUILT_VERSION}-linux-x86_64.tar.gz" ;;
+                x86_64)
+                    if test "${_libc}" = "musl"; then
+                        _tarball="vtk-${VTK_PREBUILT_VERSION}-linux-musl-x86_64.tar.gz"
+                    else
+                        _tarball="vtk-${VTK_PREBUILT_VERSION}-linux-x86_64.tar.gz"
+                    fi ;;
                 aarch64) _tarball="vtk-${VTK_PREBUILT_VERSION}-linux-aarch64.tar.gz" ;;
                 *)
                     echo "ERROR: Unsupported Linux architecture '${_arch}'." >&2
@@ -166,7 +176,7 @@ if test "${vtk_found}" = "no"; then
 
     echo "  Downloading ${_url} ..."
     mkdir -p "${_prebuilt_dir}"
-    _tmp="$(mktemp /tmp/vtk-prebuilt.XXXXXX.tar.gz)"
+    _tmp="$(mktemp /tmp/vtk-prebuilt.XXXXXX)"
 
     if command -v curl > /dev/null 2>&1; then
         curl -fsSL "${_url}" -o "${_tmp}" || {

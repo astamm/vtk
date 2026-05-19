@@ -1,6 +1,19 @@
-# rvtk (development version)
+# rvtk 0.1.4
 
 ### New features
+
+* **Linux x86_64 musl (Alpine Linux) support.** The pre-built static fallback
+  now provides a `vtk-X.Y.Z-linux-musl-x86_64.tar.gz` archive built inside an
+  Alpine 3.22 container. The `configure` script detects musl by inspecting
+  `ldd --version` output and automatically downloads the correct archive;
+  no user action is required. This fixes installation on the CRAN musl
+  check platform (`x86_64-pc-linux-musl`, Alpine Linux).
+
+* **`configure`: fixed `mktemp` incompatibility with BusyBox.** The
+  temporary file for the pre-built archive download was created with a
+  dotted suffix (`/tmp/vtk-prebuilt.XXXXXX.tar.gz`), which BusyBox `mktemp`
+  rejects with `Invalid argument`. The suffix has been removed; the file is
+  renamed internally before extraction.
 
 * **Linux aarch64 support.** The pre-built static fallback now provides a
   `vtk-X.Y.Z-linux-aarch64.tar.gz` archive built on `ubuntu-24.04-arm`.

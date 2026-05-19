@@ -554,10 +554,88 @@ jobs:
           path: vtk-${{ env.VTK_VERSION }}-linux-aarch64.tar.gz
           retention-days: 7
 
+  # ── Linux x86_64 musl (Alpine Linux) ──────────────────────────────────────
+  build-linux-musl-x86_64:
+    name: Linux x86_64 musl (Alpine)
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:3.22
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Restore build cache
+        id: cache
+        uses: actions/cache@v5
+        with:
+          path: install
+          key: vtk-${{ env.VTK_VERSION }}-linux-musl-x86_64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
+
+      - name: Install build dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          apk add --no-cache \
+            cmake ninja g++ make curl \
+            linux-headers
+
+      - name: Download VTK source
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          curl -fsSL "https://www.vtk.org/files/release/${MINOR}/VTK-${VER}.tar.gz" -o vtk-src.tar.gz
+          tar -xzf vtk-src.tar.gz
+
+      - name: Configure VTK
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          mkdir build && cd build
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/../install" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DVTK_BUILD_ALL_MODULES=OFF \
+            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOXML=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DCMAKE_C_FLAGS="-fPIC" \
+            -DCMAKE_CXX_FLAGS="-fPIC" \
+            ../VTK-${VER}
+
+      - name: Build and install VTK
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd build
+          ninja -j$(nproc)
+          ninja install
+
+      - name: Package archive
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          PKG="vtk-${VER}-linux-musl-x86_64"
+          mkdir -p "${PKG}/include/vtk-${MINOR}" "${PKG}/lib"
+          SRC_INC=$(find install/include -maxdepth 1 -name "vtk-*" -type d | sort -V | tail -1)
+          if [ -n "${SRC_INC}" ]; then
+            cp -R "${SRC_INC}/"* "${PKG}/include/vtk-${MINOR}/"
+          fi
+          find install/lib -name "*.a" -exec cp {} "${PKG}/lib/" \;
+          tar -czf "${PKG}.tar.gz" "${PKG}"
+          echo "Created ${PKG}.tar.gz"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vtk-linux-musl-x86_64
+          path: vtk-${{ env.VTK_VERSION }}-linux-musl-x86_64.tar.gz
+          retention-days: 7
+
   # ── GitHub Release ─────────────────────────────────────────────────────────
   release:
     name: Publish GitHub Release
-    needs: [build-windows, build-windows-shared, build-macos-arm64, build-macos-x86_64, build-linux, build-linux-aarch64]
+    needs: [build-windows, build-windows-shared, build-macos-arm64, build-macos-x86_64, build-linux, build-linux-aarch64, build-linux-musl-x86_64]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -593,7 +671,8 @@ jobs:
           | Windows (Rtools45 static.posix x64) | shared `.dll` | `vtk-$VER-shared-posix-x64.zip` |
           | macOS arm64 (Apple Silicon) | static `.a` | `vtk-$VER-darwin-arm64.tar.gz` |
           | macOS x86\_64 (Intel) | static `.a` | `vtk-$VER-darwin-x86_64.tar.gz` |
-          | Linux x86\_64 | static `.a` | `vtk-$VER-linux-x86_64.tar.gz` |
+          | Linux x86\_64 (glibc) | static `.a` | `vtk-$VER-linux-x86_64.tar.gz` |
+          | Linux x86\_64 (musl / Alpine) | static `.a` | `vtk-$VER-linux-musl-x86_64.tar.gz` |
           | Linux aarch64 | static `.a` | `vtk-$VER-linux-aarch64.tar.gz` |
 
           ## Archive layout
@@ -678,4 +757,5 @@ jobs:
             artifacts/vtk-macos-arm64/vtk-${{ env.VTK_VERSION }}-darwin-arm64.tar.gz
             artifacts/vtk-macos-x86_64/vtk-${{ env.VTK_VERSION }}-darwin-x86_64.tar.gz
             artifacts/vtk-linux-x86_64/vtk-${{ env.VTK_VERSION }}-linux-x86_64.tar.gz
+            artifacts/vtk-linux-musl-x86_64/vtk-${{ env.VTK_VERSION }}-linux-musl-x86_64.tar.gz
             artifacts/vtk-linux-aarch64/vtk-${{ env.VTK_VERSION }}-linux-aarch64.tar.gz

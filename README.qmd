@@ -73,9 +73,11 @@ The `configure.win` script also tries each strategy in order:
 | macOS x86_64 | System (Homebrew, shared) | ✔ |
 | macOS x86_64 | Pre-built static (automatic fallback) | ✔ |
 | macOS x86_64 | Custom `VTK_DIR` (static or shared) | ✔ |
-| Linux x86_64 | System (apt / pkg-config, shared) | ✔ |
-| Linux x86_64 | Pre-built static (automatic fallback) | ✔ |
-| Linux x86_64 | Custom `VTK_DIR` (static or shared) | ✔ |
+| Linux x86_64 (glibc) | System (apt / pkg-config, shared) | ✔ |
+| Linux x86_64 (glibc) | Pre-built static (automatic fallback) | ✔ |
+| Linux x86_64 (glibc) | Custom `VTK_DIR` (static or shared) | ✔ |
+| Linux x86_64 (musl / Alpine) | Pre-built static (automatic fallback) | ✔ |
+| Linux x86_64 (musl / Alpine) | Custom `VTK_DIR` (static or shared) | ✔ |
 | Linux aarch64 | System (apt / pkg-config, shared) | ✔ |
 | Linux aarch64 | Pre-built static (automatic fallback) | ✔ |
 | Linux aarch64 | Custom `VTK_DIR` (static or shared) | ✔ |

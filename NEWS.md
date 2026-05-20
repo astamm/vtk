@@ -24,10 +24,6 @@
 
   Uses **cli** for formatted console output (listed in `Imports`).
 
-# rvtk 0.1.3
-
-### New features
-
 * **Linux x86_64 musl (Alpine Linux) support.** The pre-built static fallback
   now provides a `vtk-X.Y.Z-linux-musl-x86_64.tar.gz` archive built inside an
   Alpine 3.22 container via `docker run` on the GitHub Actions runner (the
@@ -41,16 +37,18 @@
   and rendering dependencies unavailable on the headless Alpine runner:
   `-DVTK_USE_X=OFF -DVTK_MODULE_ENABLE_VTK_RenderingOpenGL2=NO`.
 
+* **Linux aarch64 support.** The pre-built static fallback now provides a
+  `vtk-X.Y.Z-linux-aarch64.tar.gz` archive built on `ubuntu-24.04-arm`.
+  The `configure` script detects the host architecture and downloads the
+  correct archive automatically, so no user action is required.
+
+### Bug fixes
+
 * **`configure`: fixed `mktemp` incompatibility with BusyBox.** The
   temporary file for the pre-built archive download was created with a
   dotted suffix (`/tmp/vtk-prebuilt.XXXXXX.tar.gz`), which BusyBox `mktemp`
   rejects with `Invalid argument`. The suffix has been removed; the file is
   renamed internally before extraction.
-
-* **Linux aarch64 support.** The pre-built static fallback now provides a
-  `vtk-X.Y.Z-linux-aarch64.tar.gz` archive built on `ubuntu-24.04-arm`.
-  The `configure` script detects the host architecture and downloads the
-  correct archive automatically, so no user action is required.
 
 * **`modules` argument for `LdFlags()` and `LdFlagsFile()`.**
   Both linker-flag functions now accept a `modules` character vector that

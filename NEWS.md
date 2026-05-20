@@ -2,6 +2,32 @@
 
 ### New features
 
+* **`use_rvtk()`: one-call downstream package setup.** A new
+  [usethis](https://usethis.r-lib.org/)-style helper that configures a
+  downstream R package to link against VTK in one step. Running
+  `rvtk::use_rvtk()` inside a downstream package project:
+
+  1. Adds `rvtk` to the `Imports` field of `DESCRIPTION`.
+  2. Writes `src/Makevars` with backtick-style `Rscript` invocations that
+     query `tools/configure.R` for compiler and linker flags.
+  3. Writes `src/Makevars.win` with the Windows-specific `$(shell ...)` syntax
+     that does the same.
+  4. Writes `tools/configure.R` that calls `rvtk::CppFlags()` and
+     `rvtk::LdFlagsFile()` with a customisable list of VTK modules.
+  5. Adds `src/vtk_libs.rsp` to `.gitignore`.
+  6. Creates `R/rvtk_imports.R` with a minimal `@importFrom rvtk` tag so
+     that `R CMD check` does not warn about an unused `Imports` entry.
+
+  The `modules` argument (default: the standard I/O + core set) lets
+  downstream developers restrict linking to only the VTK modules they need,
+  avoiding unintended symbol drag-in (important on macOS static bundles).
+
+  Uses **cli** for formatted console output (listed in `Imports`).
+
+# rvtk 0.1.3
+
+### New features
+
 * **Linux x86_64 musl (Alpine Linux) support.** The pre-built static fallback
   now provides a `vtk-X.Y.Z-linux-musl-x86_64.tar.gz` archive built inside an
   Alpine 3.22 container via `docker run` on the GitHub Actions runner (the

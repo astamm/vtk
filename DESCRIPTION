@@ -33,11 +33,18 @@ Description: Provides pre-compiled static 'VTK' libraries and headers so that
     sysroot. Downstream packages can declare 'Imports: rvtk' and obtain the
     correct compiler and linker flags at install time via rvtk::CppFlags() and
     rvtk::LdFlagsFile(), optionally restricting linking to a subset of modules
-    via the 'modules' argument.
+    via the 'modules' argument. A convenience helper use_rvtk() (in the spirit
+    of the 'usethis' package) automates the full setup of a downstream package:
+    it adds 'rvtk' to 'Imports' in 'DESCRIPTION' and writes all files
+    required to resolve VTK flags at install time ('src/Makevars',
+    'src/Makevars.win', 'tools/configure.R', and 'R/rvtk_imports.R'), and
+    keeps generated build artefacts out of version control.
 License: MIT + file LICENSE
 Encoding: UTF-8
 URL: https://github.com/astamm/rvtk, https://astamm.github.io/rvtk/
 BugReports: https://github.com/astamm/rvtk/issues
+Imports:
+    cli
 NeedsCompilation: no
 Suggests: 
     tinytest

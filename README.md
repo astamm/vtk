@@ -66,9 +66,11 @@ The `configure.win` script also tries each strategy in order:
 | macOS x86_64 | System (Homebrew, shared) | ✔ |
 | macOS x86_64 | Pre-built static (automatic fallback) | ✔ |
 | macOS x86_64 | Custom `VTK_DIR` (static or shared) | ✔ |
-| Linux x86_64 | System (apt / pkg-config, shared) | ✔ |
-| Linux x86_64 | Pre-built static (automatic fallback) | ✔ |
-| Linux x86_64 | Custom `VTK_DIR` (static or shared) | ✔ |
+| Linux x86_64 (glibc) | System (apt / pkg-config, shared) | ✔ |
+| Linux x86_64 (glibc) | Pre-built static (automatic fallback) | ✔ |
+| Linux x86_64 (glibc) | Custom `VTK_DIR` (static or shared) | ✔ |
+| Linux x86_64 (musl / Alpine) | Pre-built static (automatic fallback) | ✔ |
+| Linux x86_64 (musl / Alpine) | Custom `VTK_DIR` (static or shared) | ✔ |
 | Linux aarch64 | System (apt / pkg-config, shared) | ✔ |
 | Linux aarch64 | Pre-built static (automatic fallback) | ✔ |
 | Linux aarch64 | Custom `VTK_DIR` (static or shared) | ✔ |
@@ -192,102 +194,108 @@ the package downloads pre-built static libraries automatically.
 
 ## Usage for downstream package developers
 
-Add **rvtk** to the `Imports` field of your `DESCRIPTION`:
+### Quick setup with `use_rvtk()`
+
+The easiest way to configure a downstream package is to call
+`use_rvtk()` from the root of that package. It handles everything in one
+step:
+
+``` r
+rvtk::use_rvtk()
+```
+
+This will:
+
+1.  Add `rvtk` to `Imports` in `DESCRIPTION`.
+2.  Write `src/Makevars` and `src/Makevars.win` that resolve VTK
+    compiler and linker flags at install time by calling a small R
+    helper script.
+3.  Write `tools/configure.R` that calls `rvtk::CppFlags()` and
+    `rvtk::LdFlagsFile()`.
+4.  Add `src/vtk_libs.rsp` to `.gitignore`.
+5.  Create `R/rvtk_imports.R` with a minimal `@importFrom rvtk` tag so
+    that `R CMD check` does not warn about an unused `Imports` entry.
+
+The `modules` argument lets you restrict linking to only the VTK modules
+your package actually needs (strongly recommended on macOS to avoid
+pulling in AppKit/Cocoa symbols from the static bundle):
+
+``` r
+rvtk::use_rvtk(
+  modules = c(
+    "vtkIOLegacy",
+    "vtkIOXML",
+    "vtkCommonCore",
+    "vtkCommonDataModel"
+  )
+)
+```
+
+### Manual setup
+
+If you prefer to set up the files manually, add **rvtk** to the
+`Imports` field of `DESCRIPTION`:
 
     Imports: rvtk
 
-Because `$(shell ...)` is a GNU make extension that is **not** allowed
-in `Makevars`, the correct approach is to query `rvtk::CppFlags()` and
-`rvtk::LdFlagsFile()` from a `configure` / `configure.win` script and
-write the results into `src/Makevars` at install time.
+Then create the following three files.
+
+#### `src/Makevars`
+
+``` makefile
+PKG_CPPFLAGS = `"$(R_HOME)/bin/Rscript" ../tools/configure.R --cppflags`
+PKG_LIBS = `"$(R_HOME)/bin/Rscript" ../tools/configure.R --libs`
+```
+
+#### `src/Makevars.win`
+
+``` makefile
+PKG_CPPFLAGS = $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript" ../tools/configure.R --cppflags)
+PKG_LIBS = $(shell "$(R_HOME)/bin$(R_ARCH_BIN)/Rscript" ../tools/configure.R --libs)
+```
+
+#### `tools/configure.R`
+
+``` r
+args <- commandArgs(trailingOnly = TRUE)
+flag <- if (length(args)) args[1L] else "--cppflags"
+
+vtk_modules <- c(
+  "vtkIOLegacy",
+  "vtkIOXML",
+  "vtkIOXMLParser",
+  "vtkIOCore",
+  "vtkCommonCore",
+  "vtkCommonDataModel",
+  "vtkCommonExecutionModel",
+  "vtkCommonMath",
+  "vtkCommonMisc",
+  "vtkCommonSystem",
+  "vtkCommonTransforms",
+  "vtksys"
+)
+
+if (flag == "--cppflags") {
+  rvtk::CppFlags()
+} else if (flag == "--libs") {
+  rvtk::LdFlagsFile(path = "vtk_libs.rsp", modules = vtk_modules)
+}
+```
+
+Adjust `vtk_modules` to the subset of VTK modules your package requires.
 
 `LdFlagsFile()` is preferred over `LdFlags()` for the linker flags
 because the full set of VTK `-l` flags can exceed the 8 191-character
-Windows command-line limit, which causes the linker to silently drop
-flags at the end of the list. `LdFlagsFile(path)` writes the flags to a
-response file and returns `@path` — the short token the linker reads
-instead. GNU ld and LLVM lld both support this syntax. On macOS and
-Linux the flags are also written to the file so the calling convention
-is identical on all platforms.
+Windows command-line limit. `LdFlagsFile(path)` writes the flags to a
+response file and returns the short `@path` token that GNU ld and LLVM
+lld both support; on macOS and Linux the raw flags are returned
+directly.
 
-### Step 1 — `src/Makevars.in` (template, committed to version control)
+Add `src/vtk_libs.rsp` to `.gitignore` (it is generated at install
+time).
 
-``` makefile
-PKG_CPPFLAGS = @VTK_CPPFLAGS@
-PKG_LIBS     = @VTK_LIBS@
-```
-
-### Step 2 — `configure`(`.win`)
-
-``` sh
-# configure (macOS/Linux/Windows)
-#!/bin/sh
-set -e
-: "${R_HOME:=$(R RHOME)}"
-VTK_CPPFLAGS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::CppFlags()")"
-# LdFlagsFile() writes all linker flags to a response file (src/vtk_libs.rsp)
-# and returns the short token @vtk_libs.rsp that is safe on all platforms,
-# including Windows where the full flag string can exceed the 8191-char limit.
-# Pass 'modules' to restrict linking to only the modules you use.
-VTK_LIBS="$("${R_HOME}/bin/Rscript" --vanilla -e \
-  "rvtk::LdFlagsFile('src/vtk_libs.rsp', modules = c('VTK_IOLegacy', 'VTK_CommonCore', 'VTK_CommonDataModel'))")"
-sed -e "s|@VTK_CPPFLAGS@|${VTK_CPPFLAGS}|g" \
-    -e "s|@VTK_LIBS@|${VTK_LIBS}|g" \
-    src/Makevars.in > src/Makevars
-```
-
-``` sh
-# configure.win (Windows)
-#!/bin/sh
-./configure
-```
-
-Make them executable:
-
-``` sh
-chmod +x configure configure.win
-```
-
-### Step 3 — `.gitignore` / `.Rbuildignore`
-
-Add the generated files to `.gitignore` and `.Rbuildignore` so they are
-not committed:
-
-    src/Makevars
-    src/vtk_libs.rsp
-
-### Step 4 - `cleanup`(`.win`)
-
-Add a `cleanup` / `cleanup.win` script that removes the generated
-`Makevars` after installation so it is not accidentally committed:
-
-``` sh
-# cleanup (macOS/Linux/Windows)
-#!/bin/sh
-rm -f src/Makevars src/vtk_libs.rsp
-```
-
-``` sh
-# cleanup.win (Windows)
-#!/bin/sh
-./cleanup
-```
-
-Make them executable:
-
-``` sh
-chmod +x cleanup cleanup.win
-```
-
-### Step 5 - Function import
-
-The **rvtk** package is meant to be used by downstream packages that
-link against VTK. It is most likely that its R functions will only be
-called from `configure` / `configure.win` scripts. `R CMD check` will
-complain because it means that you must list **rvtk** in the `Imports`
-field of your `DESCRIPTION` but do not actually import any of its
-functions in your R code. The solution is to import at least one of the
-functions in a dummy R script that is not used for anything else:
+Import at least one **rvtk** function in your R code to satisfy
+`R CMD check`:
 
 ``` r
 # R/rvtk_imports.R
@@ -302,9 +310,9 @@ You can verify the detected installation at any time:
 ``` r
 library(rvtk)
 CppFlags()
-#> -isystem/opt/homebrew/opt/vtk/include/vtk-9.5
+#> -isystem/Users/stamm-a/Downloads/vtk-compil/vtk-install-static/include/vtk-9.5
 LdFlagsFile(tempfile(fileext = ".rsp"))
-#> -L/opt/homebrew/opt/vtk/lib -lvtkIOLegacy-9.5 -lvtkIOXML-9.5 -lvtkIOXMLParser-9.5 -lvtkIOCore-9.5 -lvtkCommonCore-9.5 -lvtkCommonDataModel-9.5 -lvtkCommonExecutionModel-9.5 -lvtkCommonMath-9.5 -lvtkCommonMisc-9.5 -lvtkCommonSystem-9.5 -lvtkCommonTransforms-9.5 -lvtksys-9.5
+#> -L/Users/stamm-a/Downloads/vtk-compil/vtk-install-static/lib -lvtkIOLegacy-9.5 -lvtkIOXML-9.5 -lvtkIOXMLParser-9.5 -lvtkIOCore-9.5 -lvtkCommonCore-9.5 -lvtkCommonDataModel-9.5 -lvtkCommonExecutionModel-9.5 -lvtkCommonMath-9.5 -lvtkCommonMisc-9.5 -lvtkCommonSystem-9.5 -lvtkCommonTransforms-9.5 -lvtksys-9.5 -Wl,-rpath,/Users/stamm-a/Downloads/vtk-compil/vtk-install-static/lib
 VtkVersion()
 #> [1] "9.5.0"
 ```

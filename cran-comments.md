@@ -1,3 +1,54 @@
+## Submission (v0.1.4)
+
+This submission adds musl/Alpine Linux support and a BusyBox `mktemp`
+compatibility fix.
+
+### Changes since v0.1.3
+
+1. **musl (Alpine Linux) x86_64 support** — the `configure` script now
+   detects musl libc (via `ldd --version`) and downloads a dedicated
+   `vtk-X.Y.Z-linux-musl-x86_64.tar.gz` pre-built archive. This fixes
+   installation on the CRAN musl check platform (`x86_64-pc-linux-musl`).
+   The archive is built inside an Alpine 3.22 container via `docker run`
+   on the CI runner (rather than a `container:` job, which would crash
+   because the GitHub Actions Node.js runtime is glibc-linked). CMake is
+   configured with `-DVTK_USE_X=OFF -DVTK_MODULE_ENABLE_VTK_RenderingOpenGL2=NO`
+   to avoid X11 and rendering dependencies absent from the headless Alpine
+   environment.
+
+2. **BusyBox `mktemp` fix** — the temporary filename used when downloading
+   the pre-built archive previously included a dotted suffix after `XXXXXX`,
+   which BusyBox `mktemp` rejects. The suffix is now omitted.
+
+3. **Dead code removed** — `.vtk_state$original_path <- NULL` in `R/zzz.R`
+   was never read (the actual mutable slot used is `.vtk_original_path`
+   assigned via `assign()`); removed.
+
+## R CMD check results
+
+0 errors | 0 warnings | 1 note
+
+* This is a re-submission.
+
+## Notes
+
+* The package downloads pre-built VTK 9.5.2 libraries at install time from
+  <https://github.com/astamm/rvtk/releases/tag/v9.5.2> when no suitable system
+  VTK installation is found.
+* Pre-built binaries are now provided for Windows (Rtools45 static.posix x64,
+  static and shared), macOS arm64, macOS x86_64, Linux x86_64 (glibc),
+  Linux x86_64 (musl / Alpine), and Linux aarch64.
+* No compiled code is included in the package itself (`NeedsCompilation: no`).
+
+## Downstream usage
+
+Downstream packages declare `Imports: rvtk` and use `rvtk::CppFlags()` /
+`rvtk::LdFlagsFile()` in their `configure` / `configure.win` scripts to obtain
+the correct compiler and linker flags for the detected or downloaded VTK
+installation.
+
+---
+
 ## Submission (v0.1.3)
 
 This is a new submission adding Windows VTK discovery, Windows shared-DLL

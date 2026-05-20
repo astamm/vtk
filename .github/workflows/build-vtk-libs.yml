@@ -477,10 +477,169 @@ jobs:
           path: vtk-${{ env.VTK_VERSION }}-linux-x86_64.tar.gz
           retention-days: 7
 
+  # ── Linux aarch64 ─────────────────────────────────────────────────────────
+  build-linux-aarch64:
+    name: Linux aarch64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Restore build cache
+        id: cache
+        uses: actions/cache@v5
+        with:
+          path: install
+          key: vtk-${{ env.VTK_VERSION }}-linux-aarch64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
+
+      - name: Install build dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build build-essential libgl1-mesa-dev \
+            libxt-dev libxrender-dev libxext-dev
+
+      - name: Download VTK source
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          curl -fsSL "https://www.vtk.org/files/release/${MINOR}/VTK-${VER}.tar.gz" -o vtk-src.tar.gz
+          tar -xzf vtk-src.tar.gz
+
+      - name: Configure VTK
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          mkdir build && cd build
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/../install" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DVTK_BUILD_ALL_MODULES=OFF \
+            -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOXML=YES \
+            -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
+            -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DCMAKE_C_FLAGS="-fPIC" \
+            -DCMAKE_CXX_FLAGS="-fPIC" \
+            ../VTK-${VER}
+
+      - name: Build and install VTK
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd build
+          ninja -j$(nproc)
+          ninja install
+
+      - name: Package archive
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          PKG="vtk-${VER}-linux-aarch64"
+          mkdir -p "${PKG}/include/vtk-${MINOR}" "${PKG}/lib"
+          SRC_INC=$(find install/include -maxdepth 1 -name "vtk-*" -type d | sort -V | tail -1)
+          if [ -n "${SRC_INC}" ]; then
+            cp -R "${SRC_INC}/"* "${PKG}/include/vtk-${MINOR}/"
+          fi
+          find install/lib -name "*.a" -exec cp {} "${PKG}/lib/" \;
+          tar -czf "${PKG}.tar.gz" "${PKG}"
+          echo "Created ${PKG}.tar.gz"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vtk-linux-aarch64
+          path: vtk-${{ env.VTK_VERSION }}-linux-aarch64.tar.gz
+          retention-days: 7
+
+  # ── Linux x86_64 musl (Alpine Linux) ──────────────────────────────────────
+  # NOTE: We intentionally do NOT use `container: image: alpine:3.22` here.
+  # GitHub Actions runs a glibc-linked Node.js binary for JS-based actions
+  # (checkout, cache, upload-artifact); that binary crashes immediately inside
+  # a musl container with "Exec format error" / SIGILL.  Instead, the job runs
+  # on ubuntu-latest and only the build steps are executed inside Alpine via
+  # an explicit `docker run`, which gives us a true musl build environment
+  # while keeping all GitHub Actions plumbing on the glibc host.
+  build-linux-musl-x86_64:
+    name: Linux x86_64 musl (Alpine)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Restore build cache
+        id: cache
+        uses: actions/cache@v5
+        with:
+          path: install
+          key: vtk-${{ env.VTK_VERSION }}-linux-musl-x86_64${{ inputs.force_rebuild == 'true' && format('-bust-{0}', github.run_id) || '' }}
+
+      - name: Download VTK source
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          curl -fsSL "https://www.vtk.org/files/release/${MINOR}/VTK-${VER}.tar.gz" -o vtk-src.tar.gz
+          tar -xzf vtk-src.tar.gz
+
+      - name: Build and install VTK inside Alpine container
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            alpine:3.22 \
+            sh -c "
+              set -eux
+              apk add --no-cache cmake ninja g++ make curl linux-headers
+              mkdir -p build install
+              cd build
+              cmake -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=/work/install \
+                -DBUILD_SHARED_LIBS=OFF \
+                -DVTK_BUILD_ALL_MODULES=OFF \
+                -DVTK_MODULE_ENABLE_VTK_IOLegacy=YES \
+                -DVTK_MODULE_ENABLE_VTK_IOXML=YES \
+                -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
+                -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
+                -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
+                -DVTK_MODULE_ENABLE_VTK_RenderingOpenGL2=NO \
+                -DVTK_USE_X=OFF \
+                -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+                -DCMAKE_C_FLAGS='-fPIC' \
+                -DCMAKE_CXX_FLAGS='-fPIC' \
+                /work/VTK-${VER}
+              ninja -j\$(nproc)
+              ninja install
+            "
+
+      - name: Package archive
+        run: |
+          VER="${{ env.VTK_VERSION }}"
+          MINOR="${VER%.*}"
+          PKG="vtk-${VER}-linux-musl-x86_64"
+          mkdir -p "${PKG}/include/vtk-${MINOR}" "${PKG}/lib"
+          SRC_INC=$(find install/include -maxdepth 1 -name "vtk-*" -type d | sort -V | tail -1)
+          if [ -n "${SRC_INC}" ]; then
+            cp -R "${SRC_INC}/"* "${PKG}/include/vtk-${MINOR}/"
+          fi
+          find install/lib -name "*.a" -exec cp {} "${PKG}/lib/" \;
+          tar -czf "${PKG}.tar.gz" "${PKG}"
+          echo "Created ${PKG}.tar.gz"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vtk-linux-musl-x86_64
+          path: vtk-${{ env.VTK_VERSION }}-linux-musl-x86_64.tar.gz
+          retention-days: 7
+
   # ── GitHub Release ─────────────────────────────────────────────────────────
   release:
     name: Publish GitHub Release
-    needs: [build-windows, build-windows-shared, build-macos-arm64, build-macos-x86_64, build-linux]
+    needs: [build-windows, build-windows-shared, build-macos-arm64, build-macos-x86_64, build-linux, build-linux-aarch64, build-linux-musl-x86_64]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -516,7 +675,9 @@ jobs:
           | Windows (Rtools45 static.posix x64) | shared `.dll` | `vtk-$VER-shared-posix-x64.zip` |
           | macOS arm64 (Apple Silicon) | static `.a` | `vtk-$VER-darwin-arm64.tar.gz` |
           | macOS x86\_64 (Intel) | static `.a` | `vtk-$VER-darwin-x86_64.tar.gz` |
-          | Linux x86\_64 | static `.a` | `vtk-$VER-linux-x86_64.tar.gz` |
+          | Linux x86\_64 (glibc) | static `.a` | `vtk-$VER-linux-x86_64.tar.gz` |
+          | Linux x86\_64 (musl / Alpine) | static `.a` | `vtk-$VER-linux-musl-x86_64.tar.gz` |
+          | Linux aarch64 | static `.a` | `vtk-$VER-linux-aarch64.tar.gz` |
 
           ## Archive layout
 
@@ -568,6 +729,16 @@ jobs:
           -DVTK_MODULE_USE_EXTERNAL_VTK_libproj=NO
           -DH5_HAVE_VASPRINTF:INTERNAL=0
           ```
+
+          ### Linux musl / Alpine additional flags
+
+          ```cmake
+          # Built via `docker run alpine:3.22` on the CI runner (not a container: job,
+          # which would fail because the GitHub Actions Node.js runtime is glibc-linked).
+          # X11 and OpenGL rendering are not available on the headless Alpine runner:
+          -DVTK_USE_X=OFF
+          -DVTK_MODULE_ENABLE_VTK_RenderingOpenGL2=NO
+          ```
           NOTES
           # Expand $VER / $MINOR placeholders (heredoc kept literal to avoid yaml issues)
           sed -i "s|\$VER|${VER}|g; s|\$MINOR|${MINOR}|g" release-notes.md
@@ -600,3 +771,5 @@ jobs:
             artifacts/vtk-macos-arm64/vtk-${{ env.VTK_VERSION }}-darwin-arm64.tar.gz
             artifacts/vtk-macos-x86_64/vtk-${{ env.VTK_VERSION }}-darwin-x86_64.tar.gz
             artifacts/vtk-linux-x86_64/vtk-${{ env.VTK_VERSION }}-linux-x86_64.tar.gz
+            artifacts/vtk-linux-musl-x86_64/vtk-${{ env.VTK_VERSION }}-linux-musl-x86_64.tar.gz
+            artifacts/vtk-linux-aarch64/vtk-${{ env.VTK_VERSION }}-linux-aarch64.tar.gz

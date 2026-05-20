@@ -1,4 +1,78 @@
-# rvtk (development version)
+# rvtk 0.1.4
+
+### New features
+
+* **`use_rvtk()`: one-call downstream package setup.** A new
+  [usethis](https://usethis.r-lib.org/)-style helper that configures a
+  downstream R package to link against VTK in one step. Running
+  `rvtk::use_rvtk()` inside a downstream package project:
+
+  1. Adds `rvtk` to the `Imports` field of `DESCRIPTION`.
+  2. Writes `src/Makevars` with backtick-style `Rscript` invocations that
+     query `tools/configure.R` for compiler and linker flags.
+  3. Writes `src/Makevars.win` with the Windows-specific `$(shell ...)` syntax
+     that does the same.
+  4. Writes `tools/configure.R` that calls `rvtk::CppFlags()` and
+     `rvtk::LdFlagsFile()` with a customisable list of VTK modules.
+  5. Adds `src/vtk_libs.rsp` to `.gitignore`.
+  6. Creates `R/rvtk_imports.R` with a minimal `@importFrom rvtk` tag so
+     that `R CMD check` does not warn about an unused `Imports` entry.
+
+  The `modules` argument (default: the standard I/O + core set) lets
+  downstream developers restrict linking to only the VTK modules they need,
+  avoiding unintended symbol drag-in (important on macOS static bundles).
+
+  Uses **cli** for formatted console output (listed in `Imports`).
+
+* **Linux x86_64 musl (Alpine Linux) support.** The pre-built static fallback
+  now provides a `vtk-X.Y.Z-linux-musl-x86_64.tar.gz` archive built inside an
+  Alpine 3.22 container via `docker run` on the GitHub Actions runner (the
+  `container:` job directive was not used because GitHub Actions' Node.js
+  runtime is glibc-linked and crashes on musl). The `configure` script detects
+  musl by inspecting `ldd --version` output and automatically downloads the
+  correct archive; no user action is required. This fixes installation on the
+  CRAN musl check platform (`x86_64-pc-linux-musl`, Alpine Linux).
+
+  The following extra CMake flags are set for the musl build to avoid X11
+  and rendering dependencies unavailable on the headless Alpine runner:
+  `-DVTK_USE_X=OFF -DVTK_MODULE_ENABLE_VTK_RenderingOpenGL2=NO`.
+
+* **Linux aarch64 support.** The pre-built static fallback now provides a
+  `vtk-X.Y.Z-linux-aarch64.tar.gz` archive built on `ubuntu-24.04-arm`.
+  The `configure` script detects the host architecture and downloads the
+  correct archive automatically, so no user action is required.
+
+### Bug fixes
+
+* **`configure`: fixed `mktemp` incompatibility with BusyBox.** The
+  temporary file for the pre-built archive download was created with a
+  dotted suffix (`/tmp/vtk-prebuilt.XXXXXX.tar.gz`), which BusyBox `mktemp`
+  rejects with `Invalid argument`. The suffix has been removed; the file is
+  renamed internally before extraction.
+
+* **`modules` argument for `LdFlags()` and `LdFlagsFile()`.**
+  Both linker-flag functions now accept a `modules` character vector that
+  restricts linking to the named VTK modules (e.g.
+  `c("vtkIOLegacy", "vtkCommonCore")`).  When `NULL` (the default) all
+  available modules are included, preserving backward compatibility.
+
+  This is particularly important when using the pre-built static bundle on
+  macOS: the bundle contains the full VTK (including rendering modules that
+  reference `_NSEventTrackingRunLoopMode` from `AppKit.framework`).  Without
+  filtering, `-Wl,-all_load` forces those symbols into every downstream `.so`,
+  causing `dlopen()` failures at `R CMD check` time for packages that do not
+  actually use any rendering functionality.  Downstream packages should pass
+  only the modules they need:
+
+  ```sh
+  VTK_LIBS="$("${R_HOME}/bin/Rscript" --vanilla -e "rvtk::LdFlagsFile(
+    path    = 'src/vtk_libs.rsp',
+    modules = c('vtkIOLegacy', 'vtkCommonCore', ...)
+  )")"
+  ```
+
+* New internal helper `filter_libs()` implements the module-name matching used
+  by all three platform branches of `read_vtk_conf()`.
 
 # rvtk 0.1.3
 

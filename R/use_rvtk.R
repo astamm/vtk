@@ -130,7 +130,7 @@ rvtk_use_package <- function(root) {
   imports_idx <- grep("^Imports:", lines)
 
   if (length(imports_idx) == 0L) {
-    ## No Imports field yet — insert one.
+    ## No Imports field yet - insert one.
     ## Find where Description ends (next unindented line or EOF).
     desc_start <- grep("^Description:", lines)
     if (length(desc_start) == 0L) {
@@ -155,7 +155,7 @@ rvtk_use_package <- function(root) {
     return(invisible(NULL))
   }
 
-  ## Imports exists — find full span (field line + indented continuation lines).
+  ## Imports exists - find full span (field line + indented continuation lines).
   i <- imports_idx[1L]
   span_end <- i
   j <- i + 1L
@@ -167,7 +167,7 @@ rvtk_use_package <- function(root) {
   imports_block <- paste(lines[i:span_end], collapse = "\n")
   if (grepl("\\brvtk\\b", imports_block)) {
     cli::cli_alert_info(
-      "{.pkg rvtk} is already in {.field Imports} — skipping."
+      "{.pkg rvtk} is already in {.field Imports} - skipping."
     )
     return(invisible(NULL))
   }
@@ -198,11 +198,11 @@ rvtk_write_file <- function(path, content, root = getwd()) {
         cli::col_yellow(sprintf("'%s' already exists. Overwrite? [y/N] ", rel))
       )
       if (!tolower(trimws(answer)) %in% c("y", "yes")) {
-        cli::cli_alert_warning("Skipping {.file {rel}} — not overwritten.")
+        cli::cli_alert_warning("Skipping {.file {rel}} - not overwritten.")
         return(invisible(path))
       }
     } else {
-      cli::cli_alert_warning("Skipping {.file {rel}} — already exists.")
+      cli::cli_alert_warning("Skipping {.file {rel}} - already exists.")
       return(invisible(path))
     }
   }
@@ -223,7 +223,7 @@ rvtk_use_git_ignore <- function(pattern, root = getwd()) {
 
   if (pattern %in% trimws(existing)) {
     cli::cli_alert_info(
-      "{.val {pattern}} already in {.file .gitignore} — skipping."
+      "{.val {pattern}} already in {.file .gitignore} - skipping."
     )
     return(invisible(NULL))
   }

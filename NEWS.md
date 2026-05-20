@@ -4,10 +4,16 @@
 
 * **Linux x86_64 musl (Alpine Linux) support.** The pre-built static fallback
   now provides a `vtk-X.Y.Z-linux-musl-x86_64.tar.gz` archive built inside an
-  Alpine 3.22 container. The `configure` script detects musl by inspecting
-  `ldd --version` output and automatically downloads the correct archive;
-  no user action is required. This fixes installation on the CRAN musl
-  check platform (`x86_64-pc-linux-musl`, Alpine Linux).
+  Alpine 3.22 container via `docker run` on the GitHub Actions runner (the
+  `container:` job directive was not used because GitHub Actions' Node.js
+  runtime is glibc-linked and crashes on musl). The `configure` script detects
+  musl by inspecting `ldd --version` output and automatically downloads the
+  correct archive; no user action is required. This fixes installation on the
+  CRAN musl check platform (`x86_64-pc-linux-musl`, Alpine Linux).
+
+  The following extra CMake flags are set for the musl build to avoid X11
+  and rendering dependencies unavailable on the headless Alpine runner:
+  `-DVTK_USE_X=OFF -DVTK_MODULE_ENABLE_VTK_RenderingOpenGL2=NO`.
 
 * **`configure`: fixed `mktemp` incompatibility with BusyBox.** The
   temporary file for the pre-built archive download was created with a

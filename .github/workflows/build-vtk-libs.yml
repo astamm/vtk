@@ -606,6 +606,8 @@ jobs:
                 -DVTK_MODULE_ENABLE_VTK_IOCore=YES \
                 -DVTK_MODULE_ENABLE_VTK_CommonCore=YES \
                 -DVTK_MODULE_ENABLE_VTK_CommonDataModel=YES \
+                -DVTK_MODULE_ENABLE_VTK_RenderingOpenGL2=NO \
+                -DVTK_USE_X=OFF \
                 -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
                 -DCMAKE_C_FLAGS='-fPIC' \
                 -DCMAKE_CXX_FLAGS='-fPIC' \
@@ -726,6 +728,16 @@ jobs:
           -DVTK_MODULE_USE_EXTERNAL_VTK_netcdf=OFF
           -DVTK_MODULE_USE_EXTERNAL_VTK_libproj=NO
           -DH5_HAVE_VASPRINTF:INTERNAL=0
+          ```
+
+          ### Linux musl / Alpine additional flags
+
+          ```cmake
+          # Built via `docker run alpine:3.22` on the CI runner (not a container: job,
+          # which would fail because the GitHub Actions Node.js runtime is glibc-linked).
+          # X11 and OpenGL rendering are not available on the headless Alpine runner:
+          -DVTK_USE_X=OFF
+          -DVTK_MODULE_ENABLE_VTK_RenderingOpenGL2=NO
           ```
           NOTES
           # Expand $VER / $MINOR placeholders (heredoc kept literal to avoid yaml issues)

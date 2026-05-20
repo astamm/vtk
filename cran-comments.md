@@ -9,6 +9,12 @@ compatibility fix.
    detects musl libc (via `ldd --version`) and downloads a dedicated
    `vtk-X.Y.Z-linux-musl-x86_64.tar.gz` pre-built archive. This fixes
    installation on the CRAN musl check platform (`x86_64-pc-linux-musl`).
+   The archive is built inside an Alpine 3.22 container via `docker run`
+   on the CI runner (rather than a `container:` job, which would crash
+   because the GitHub Actions Node.js runtime is glibc-linked). CMake is
+   configured with `-DVTK_USE_X=OFF -DVTK_MODULE_ENABLE_VTK_RenderingOpenGL2=NO`
+   to avoid X11 and rendering dependencies absent from the headless Alpine
+   environment.
 
 2. **BusyBox `mktemp` fix** — the temporary filename used when downloading
    the pre-built archive previously included a dotted suffix after `XXXXXX`,

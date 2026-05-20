@@ -280,10 +280,18 @@ filter_libs <- function(libs, modules) {
   if (is.null(modules)) {
     return(libs)
   }
+  # Always keep bundled third-party libs (not prefixed with "vtk")
+  # e.g. libvtkexpat, libvtkzlib, libvtklz4, libvtklzma, libvtkloguru...
+  # These lack the vtk<ModuleName> convention but are needed as transitive deps.
+  basenames <- sub(".*/", "", libs)
+  is_third_party <- !grepl("^libvtk[A-Z]", basenames) # vtk<UpperCase> = VTK module
+
   pattern <- paste0(
     "(^|/)(lib)?(",
     paste(modules, collapse = "|"),
     ")(-[0-9]|\\.).*"
   )
-  libs[grepl(pattern, libs, perl = TRUE)]
+  is_module <- grepl(pattern, libs, perl = TRUE)
+
+  libs[is_module | is_third_party]
 }

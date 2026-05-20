@@ -7,12 +7,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Bindings for the Visualization Toolkit (VTK) • rvtk</title>
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Bindings for the Visualization Toolkit (VTK)">
-<meta name="description" content="Provides pre-compiled static VTK libraries and headers so that downstream R packages can link against the Visualization Toolkit without requiring users to install VTK manually. On all platforms the package first honours a user-supplied VTK_DIR environment variable. On macOS it then tries Homebrew, followed by pkg-config. On Linux it tries pkg-config and well-known system prefixes (/usr, /usr/local). If no suitable system installation is found on macOS or Linux, pre-built static libraries are downloaded automatically from the packages GitHub releases. On Windows the package tries VTK_DIR, then Rtools45 pacman, then common MSYS2 prefixes, accepting both static (.a) and shared (.dll.a import libs + DLLs) installations. When shared libraries are used, the VTK DLLs are staged in inst/vtk-dlls/ and an .onLoad hook prepends that directory to PATH via Sys.setenv() when the package is loaded, and restored in .onUnload(). The pre-built fallback downloads static libraries by default; set VTK_LINK_TYPE=shared before installation to download the DLL build instead. Note that on Windows the modules VTK_IONetCDF, VTK_IOHDF, VTK_GeovisCore, and VTK_RenderingCore are disabled because netcdf and libproj are not available in the Rtools45 static.posix sysroot. Downstream packages can declare Imports: rvtk' and obtain the correct compiler and linker flags at install time via rvtk::CppFlags() and rvtk::LdFlagsFile().">
-<meta property="og:description" content="Provides pre-compiled static VTK libraries and headers so that downstream R packages can link against the Visualization Toolkit without requiring users to install VTK manually. On all platforms the package first honours a user-supplied VTK_DIR environment variable. On macOS it then tries Homebrew, followed by pkg-config. On Linux it tries pkg-config and well-known system prefixes (/usr, /usr/local). If no suitable system installation is found on macOS or Linux, pre-built static libraries are downloaded automatically from the packages GitHub releases. On Windows the package tries VTK_DIR, then Rtools45 pacman, then common MSYS2 prefixes, accepting both static (.a) and shared (.dll.a import libs + DLLs) installations. When shared libraries are used, the VTK DLLs are staged in inst/vtk-dlls/ and an .onLoad hook prepends that directory to PATH via Sys.setenv() when the package is loaded, and restored in .onUnload(). The pre-built fallback downloads static libraries by default; set VTK_LINK_TYPE=shared before installation to download the DLL build instead. Note that on Windows the modules VTK_IONetCDF, VTK_IOHDF, VTK_GeovisCore, and VTK_RenderingCore are disabled because netcdf and libproj are not available in the Rtools45 static.posix sysroot. Downstream packages can declare Imports: rvtk' and obtain the correct compiler and linker flags at install time via rvtk::CppFlags() and rvtk::LdFlagsFile().">
+<meta name="description" content="Provides pre-compiled static VTK libraries and headers so that downstream R packages can link against the Visualization Toolkit without requiring users to install VTK manually. On all platforms the package first honours a user-supplied VTK_DIR environment variable. On macOS it then tries Homebrew, followed by pkg-config. On Linux it tries pkg-config and well-known system prefixes (/usr, /usr/local). If no suitable system installation is found on macOS or Linux, pre-built static libraries are downloaded automatically from the packages GitHub releases for x86_64 and aarch64. On Windows the package tries VTK_DIR, then Rtools45 pacman, then common MSYS2 prefixes, accepting both static (.a) and shared (.dll.a import libs + DLLs) installations. When shared libraries are used, the VTK DLLs are staged in inst/vtk-dlls/ and an .onLoad hook prepends that directory to PATH via Sys.setenv() when the package is loaded, and restored in .onUnload(). The pre-built fallback downloads static libraries by default; set VTK_LINK_TYPE=shared before installation to download the DLL build instead. The pre-built bundles include the following VTK modules (plus their transitive dependencies): VTK_IOLegacy, VTK_IOXML, VTK_IOCore, VTK_CommonCore, and VTK_CommonDataModel. Note that on Windows VTK_IONetCDF, VTK_IOHDF, VTK_GeovisCore, and VTK_RenderingCore are additionally disabled because netcdf and libproj are not available in the Rtools45 static.posix sysroot. Downstream packages can declare Imports: rvtk and obtain the correct compiler and linker flags at install time via rvtk::CppFlags() and rvtk::LdFlagsFile(), optionally restricting linking to a subset of modules via the modules argument. A convenience helper use_rvtk() (in the spirit of the usethis package) automates the full setup of a downstream package: it adds rvtk to Imports in DESCRIPTION and writes all files required to resolve VTK flags at install time (src/Makevars, src/Makevars.win, tools/configure.R, and R/rvtk_imports.R'), and keeps generated build artefacts out of version control.">
+<meta property="og:description" content="Provides pre-compiled static VTK libraries and headers so that downstream R packages can link against the Visualization Toolkit without requiring users to install VTK manually. On all platforms the package first honours a user-supplied VTK_DIR environment variable. On macOS it then tries Homebrew, followed by pkg-config. On Linux it tries pkg-config and well-known system prefixes (/usr, /usr/local). If no suitable system installation is found on macOS or Linux, pre-built static libraries are downloaded automatically from the packages GitHub releases for x86_64 and aarch64. On Windows the package tries VTK_DIR, then Rtools45 pacman, then common MSYS2 prefixes, accepting both static (.a) and shared (.dll.a import libs + DLLs) installations. When shared libraries are used, the VTK DLLs are staged in inst/vtk-dlls/ and an .onLoad hook prepends that directory to PATH via Sys.setenv() when the package is loaded, and restored in .onUnload(). The pre-built fallback downloads static libraries by default; set VTK_LINK_TYPE=shared before installation to download the DLL build instead. The pre-built bundles include the following VTK modules (plus their transitive dependencies): VTK_IOLegacy, VTK_IOXML, VTK_IOCore, VTK_CommonCore, and VTK_CommonDataModel. Note that on Windows VTK_IONetCDF, VTK_IOHDF, VTK_GeovisCore, and VTK_RenderingCore are additionally disabled because netcdf and libproj are not available in the Rtools45 static.posix sysroot. Downstream packages can declare Imports: rvtk and obtain the correct compiler and linker flags at install time via rvtk::CppFlags() and rvtk::LdFlagsFile(), optionally restricting linking to a subset of modules via the modules argument. A convenience helper use_rvtk() (in the spirit of the usethis package) automates the full setup of a downstream package: it adds rvtk to Imports in DESCRIPTION and writes all files required to resolve VTK flags at install time (src/Makevars, src/Makevars.win, tools/configure.R, and R/rvtk_imports.R'), and keeps generated build artefacts out of version control.">
+<meta property="og:image" content="https://astamm.github.io/rvtk/logo.png">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -22,7 +23,7 @@
 
     <a class="navbar-brand me-2" href="index.html">rvtk</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -55,8 +56,10 @@
 </nav><div class="container template-home">
 <div class="row">
   <main id="main" class="col-md-9"><div class="section level1">
-<div class="page-header"><h1 id="rvtk">rvtk<a class="anchor" aria-label="anchor" href="#rvtk"></a>
-</h1></div>
+<div class="page-header">
+<img src="logo.png" class="logo" alt=""><h1 id="rvtk-">rvtk <a class="anchor" aria-label="anchor" href="#rvtk-"></a>
+</h1>
+</div>
 <!-- badges: start -->
 
 <p><strong>rvtk</strong> is an infrastructure package that makes the <a href="https://vtk.org/" class="external-link">Visualization Toolkit (VTK)</a> available to other R packages that need to link against it. It provides four utility functions — <code><a href="reference/CppFlags.html">CppFlags()</a></code>, <code><a href="reference/LdFlags.html">LdFlags()</a></code>, <code><a href="reference/LdFlagsFile.html">LdFlagsFile()</a></code>, and <code><a href="reference/VtkVersion.html">VtkVersion()</a></code> — that return the correct compiler and linker flags for however VTK was found or installed on the current machine.</p>
@@ -96,9 +99,9 @@
 </h3>
 <table class="table">
 <colgroup>
-<col width="12%">
-<col width="73%">
-<col width="14%">
+<col width="33%">
+<col width="33%">
+<col width="33%">
 </colgroup>
 <thead><tr>
 <th>Platform</th>
@@ -107,32 +110,72 @@
 </tr></thead>
 <tbody>
 <tr>
-<td>macOS</td>
+<td>macOS arm64</td>
 <td>System (Homebrew, shared)</td>
 <td>✔</td>
 </tr>
 <tr>
-<td>macOS</td>
+<td>macOS arm64</td>
 <td>Pre-built static (automatic fallback)</td>
 <td>✔</td>
 </tr>
 <tr>
-<td>macOS</td>
+<td>macOS arm64</td>
 <td>Custom <code>VTK_DIR</code> (static or shared)</td>
 <td>✔</td>
 </tr>
 <tr>
-<td>Linux</td>
-<td>System (apt / pkg-config, shared)</td>
+<td>macOS x86_64</td>
+<td>System (Homebrew, shared)</td>
 <td>✔</td>
 </tr>
 <tr>
-<td>Linux</td>
+<td>macOS x86_64</td>
 <td>Pre-built static (automatic fallback)</td>
 <td>✔</td>
 </tr>
 <tr>
-<td>Linux</td>
+<td>macOS x86_64</td>
+<td>Custom <code>VTK_DIR</code> (static or shared)</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>Linux x86_64 (glibc)</td>
+<td>System (apt / pkg-config, shared)</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>Linux x86_64 (glibc)</td>
+<td>Pre-built static (automatic fallback)</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>Linux x86_64 (glibc)</td>
+<td>Custom <code>VTK_DIR</code> (static or shared)</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>Linux x86_64 (musl / Alpine)</td>
+<td>Pre-built static (automatic fallback)</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>Linux x86_64 (musl / Alpine)</td>
+<td>Custom <code>VTK_DIR</code> (static or shared)</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>Linux aarch64</td>
+<td>System (apt / pkg-config, shared)</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>Linux aarch64</td>
+<td>Pre-built static (automatic fallback)</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>Linux aarch64</td>
 <td>Custom <code>VTK_DIR</code> (static or shared)</td>
 <td>✔</td>
 </tr>
@@ -192,9 +235,48 @@
 </div>
 </div>
 <div class="section level2">
+<h2 id="available-vtk-modules">Available VTK modules<a class="anchor" aria-label="anchor" href="#available-vtk-modules"></a>
+</h2>
+<p>The pre-built bundles shipped with <strong>rvtk</strong> are built with <code>VTK_BUILD_ALL_MODULES=OFF</code> and the following modules explicitly enabled (VTK resolves and includes all transitive dependencies automatically):</p>
+<table class="table">
+<thead><tr>
+<th>Module</th>
+<th>Purpose</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code>VTK_IOLegacy</code></td>
+<td>Legacy VTK file format reader/writer (<code>.vtk</code>)</td>
+</tr>
+<tr>
+<td><code>VTK_IOXML</code></td>
+<td>XML-based VTK file formats (<code>.vtp</code>, <code>.vtu</code>, <code>.vts</code>, …)</td>
+</tr>
+<tr>
+<td><code>VTK_IOCore</code></td>
+<td>Core I/O infrastructure shared by all I/O modules</td>
+</tr>
+<tr>
+<td><code>VTK_CommonCore</code></td>
+<td>Core data structures, object model, logging</td>
+</tr>
+<tr>
+<td><code>VTK_CommonDataModel</code></td>
+<td>Datasets, cells, point/cell data arrays</td>
+</tr>
+</tbody>
+</table>
+<p>Typical transitive dependencies pulled in automatically include <code>VTK_CommonExecutionModel</code>, <code>VTK_CommonMath</code>, <code>VTK_CommonMisc</code>, <code>VTK_CommonSystem</code>, <code>VTK_CommonTransforms</code>, <code>VTK_IOXMLParser</code>, and <code>vtksys</code>.</p>
+<p>On Windows the modules <code>VTK_IONetCDF</code>, <code>VTK_IOHDF</code>, <code>VTK_GeovisCore</code>, and <code>VTK_RenderingCore</code> are additionally <strong>disabled</strong> because <code>netcdf</code> and <code>libproj</code> are not available in the Rtools45 <code>static.posix</code> sysroot.</p>
+<p>To link against only the modules your package needs — which avoids pulling in unwanted symbols, such as AppKit/Cocoa symbols from rendering modules on macOS static bundles — pass the <code>modules</code> argument to <code><a href="reference/LdFlagsFile.html">LdFlagsFile()</a></code> (or <code><a href="reference/LdFlags.html">LdFlags()</a></code>):</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="va">VTK_LIBS</span><span class="op">=</span><span class="st">"</span><span class="va">$(</span><span class="st">"</span><span class="va">${R_HOME}</span><span class="st">/bin/Rscript"</span> <span class="at">--vanilla</span> <span class="at">-e</span> <span class="dt">\</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="st">"rvtk::LdFlagsFile('src/vtk_libs.rsp', modules = c('VTK_IOLegacy', 'VTK_CommonCore'))"</span><span class="va">)</span><span class="st">"</span></span></code></pre></div>
+<p>When <code>modules = NULL</code> (the default), all available modules are linked, which is safe when using a system VTK installation that provides only shared libraries.</p>
+</div>
+<div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("pak")</span></span>
 <span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"astamm/rvtk"</span><span class="op">)</span></span></code></pre></div>
 <p>A system VTK installation (≥ 9.1.0) is not required: if none is found the package downloads pre-built static libraries automatically.</p>
@@ -202,78 +284,101 @@
 <div class="section level2">
 <h2 id="usage-for-downstream-package-developers">Usage for downstream package developers<a class="anchor" aria-label="anchor" href="#usage-for-downstream-package-developers"></a>
 </h2>
-<p>Add <strong>rvtk</strong> to the <code>Imports</code> field of your <code>DESCRIPTION</code>:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>Imports<span class="sc">:</span> rvtk</span></code></pre></div>
-<p>Because <code>$(shell ...)</code> is a GNU make extension that is <strong>not</strong> allowed in <code>Makevars</code>, the correct approach is to query <code><a href="reference/CppFlags.html">rvtk::CppFlags()</a></code> and <code><a href="reference/LdFlagsFile.html">rvtk::LdFlagsFile()</a></code> from a <code>configure</code> / <code>configure.win</code> script and write the results into <code>src/Makevars</code> at install time.</p>
-<p><code><a href="reference/LdFlagsFile.html">LdFlagsFile()</a></code> is preferred over <code><a href="reference/LdFlags.html">LdFlags()</a></code> for the linker flags because the full set of VTK <code>-l</code> flags can exceed the 8 191-character Windows command-line limit, which causes the linker to silently drop flags at the end of the list. <code>LdFlagsFile(path)</code> writes the flags to a response file and returns <code>@path</code> — the short token the linker reads instead. GNU ld and LLVM lld both support this syntax. On macOS and Linux the flags are also written to the file so the calling convention is identical on all platforms.</p>
 <div class="section level3">
-<h3 id="step-1--srcmakevarsin-template-committed-to-version-control">Step 1 — <code>src/Makevars.in</code> (template, committed to version control)<a class="anchor" aria-label="anchor" href="#step-1--srcmakevarsin-template-committed-to-version-control"></a>
+<h3 id="quick-setup-with-use_rvtk">Quick setup with <code>use_rvtk()</code>
+<a class="anchor" aria-label="anchor" href="#quick-setup-with-use_rvtk"></a>
 </h3>
-<div class="sourceCode" id="cb5"><pre class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="dt">PKG_CPPFLAGS</span> <span class="ch">=</span><span class="st"> </span><span class="fl">@VTK_CPPFLAGS@</span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="dt">PKG_LIBS</span>     <span class="ch">=</span><span class="st"> </span><span class="fl">@VTK_LIBS@</span></span></code></pre></div>
+<p>The easiest way to configure a downstream package is to call <code><a href="reference/use_rvtk.html">use_rvtk()</a></code> from the root of that package. It handles everything in one step:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">rvtk</span><span class="fu">::</span><span class="fu"><a href="reference/use_rvtk.html">use_rvtk</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<p>This will:</p>
+<ol style="list-style-type: decimal">
+<li>Add <code>rvtk</code> to <code>Imports</code> in <code>DESCRIPTION</code>.</li>
+<li>Write <code>src/Makevars</code> and <code>src/Makevars.win</code> that resolve VTK compiler and linker flags at install time by calling a small R helper script.</li>
+<li>Write <code>tools/configure.R</code> that calls <code><a href="reference/CppFlags.html">rvtk::CppFlags()</a></code> and <code><a href="reference/LdFlagsFile.html">rvtk::LdFlagsFile()</a></code>.</li>
+<li>Add <code>src/vtk_libs.rsp</code> to <code>.gitignore</code>.</li>
+<li>Create <code>R/rvtk_imports.R</code> with a minimal <code>@importFrom rvtk</code> tag so that <code>R CMD check</code> does not warn about an unused <code>Imports</code> entry.</li>
+</ol>
+<p>The <code>modules</code> argument lets you restrict linking to only the VTK modules your package actually needs (strongly recommended on macOS to avoid pulling in AppKit/Cocoa symbols from the static bundle):</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">rvtk</span><span class="fu">::</span><span class="fu"><a href="reference/use_rvtk.html">use_rvtk</a></span><span class="op">(</span></span>
+<span>  modules <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>    <span class="st">"vtkIOLegacy"</span>,</span>
+<span>    <span class="st">"vtkIOXML"</span>,</span>
+<span>    <span class="st">"vtkCommonCore"</span>,</span>
+<span>    <span class="st">"vtkCommonDataModel"</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="step-2--configurewin">Step 2 — <code>configure</code>(<code>.win</code>)<a class="anchor" aria-label="anchor" href="#step-2--configurewin"></a>
+<h3 id="manual-setup">Manual setup<a class="anchor" aria-label="anchor" href="#manual-setup"></a>
 </h3>
-<div class="sourceCode" id="cb6"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># configure (macOS/Linux/Windows)</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">#!/bin/sh</span></span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="bu">set</span> <span class="at">-e</span></span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="bu">:</span> <span class="st">"</span><span class="va">${R_HOME</span><span class="op">:=</span><span class="va">$(</span><span class="ex">R</span> RHOME<span class="va">)}</span><span class="st">"</span></span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="va">VTK_CPPFLAGS</span><span class="op">=</span><span class="st">"</span><span class="va">$(</span><span class="st">"</span><span class="va">${R_HOME}</span><span class="st">/bin/Rscript"</span> <span class="at">--vanilla</span> <span class="at">-e</span> <span class="st">"rvtk::CppFlags()"</span><span class="va">)</span><span class="st">"</span></span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co"># LdFlagsFile() writes all linker flags to a response file (src/vtk_libs.rsp)</span></span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co"># and returns the short token @vtk_libs.rsp that is safe on all platforms,</span></span>
-<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co"># including Windows where the full flag string can exceed the 8191-char limit.</span></span>
-<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="va">VTK_LIBS</span><span class="op">=</span><span class="st">"</span><span class="va">$(</span><span class="st">"</span><span class="va">${R_HOME}</span><span class="st">/bin/Rscript"</span> <span class="at">--vanilla</span> <span class="at">-e</span> <span class="st">"rvtk::LdFlagsFile('src/vtk_libs.rsp')"</span><span class="va">)</span><span class="st">"</span></span>
-<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="fu">sed</span> <span class="at">-e</span> <span class="st">"s|@VTK_CPPFLAGS@|</span><span class="va">${VTK_CPPFLAGS}</span><span class="st">|g"</span> <span class="dt">\</span></span>
-<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>    <span class="at">-e</span> <span class="st">"s|@VTK_LIBS@|</span><span class="va">${VTK_LIBS}</span><span class="st">|g"</span> <span class="dt">\</span></span>
-<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>    src/Makevars.in <span class="op">&gt;</span> src/Makevars</span></code></pre></div>
-<div class="sourceCode" id="cb7"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># configure.win (Windows)</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#!/bin/sh</span></span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="ex">./configure</span></span></code></pre></div>
-<p>Make them executable:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">chmod</span> +x configure configure.win</span></code></pre></div>
+<p>If you prefer to set up the files manually, add <strong>rvtk</strong> to the <code>Imports</code> field of <code>DESCRIPTION</code>:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>Imports<span class="sc">:</span> rvtk</span></code></pre></div>
+<p>Then create the following three files.</p>
+<div class="section level4">
+<h4 id="srcmakevars">
+<code>src/Makevars</code><a class="anchor" aria-label="anchor" href="#srcmakevars"></a>
+</h4>
+<div class="sourceCode" id="cb8"><pre class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="dt">PKG_CPPFLAGS</span> <span class="ch">=</span><span class="st"> `"</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript" ../tools/configure.R --cppflags`</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="dt">PKG_LIBS</span> <span class="ch">=</span><span class="st"> `"</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin/Rscript" ../tools/configure.R --libs`</span></span></code></pre></div>
 </div>
-<div class="section level3">
-<h3 id="step-3--gitignore--rbuildignore">Step 3 — <code>.gitignore</code> / <code>.Rbuildignore</code>
-<a class="anchor" aria-label="anchor" href="#step-3--gitignore--rbuildignore"></a>
-</h3>
-<p>Add the generated files to <code>.gitignore</code> and <code>.Rbuildignore</code> so they are not committed:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>src<span class="sc">/</span>Makevars</span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>src<span class="sc">/</span>vtk_libs.rsp</span></code></pre></div>
+<div class="section level4">
+<h4 id="srcmakevarswin">
+<code>src/Makevars.win</code><a class="anchor" aria-label="anchor" href="#srcmakevarswin"></a>
+</h4>
+<div class="sourceCode" id="cb9"><pre class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="dt">PKG_CPPFLAGS</span> <span class="ch">=</span><span class="st"> </span><span class="ch">$(</span><span class="kw">shell</span><span class="st"> "</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin</span><span class="ch">$(</span><span class="dt">R_ARCH_BIN</span><span class="ch">)</span><span class="st">/Rscript" ../tools/configure.R --cppflags</span><span class="ch">)</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="dt">PKG_LIBS</span> <span class="ch">=</span><span class="st"> </span><span class="ch">$(</span><span class="kw">shell</span><span class="st"> "</span><span class="ch">$(</span><span class="dt">R_HOME</span><span class="ch">)</span><span class="st">/bin</span><span class="ch">$(</span><span class="dt">R_ARCH_BIN</span><span class="ch">)</span><span class="st">/Rscript" ../tools/configure.R --libs</span><span class="ch">)</span></span></code></pre></div>
 </div>
-<div class="section level3">
-<h3 id="step-4---cleanupwin">Step 4 - <code>cleanup</code>(<code>.win</code>)<a class="anchor" aria-label="anchor" href="#step-4---cleanupwin"></a>
-</h3>
-<p>Add a <code>cleanup</code> / <code>cleanup.win</code> script that removes the generated <code>Makevars</code> after installation so it is not accidentally committed:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="co"># cleanup (macOS/Linux/Windows)</span></span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="co">#!/bin/sh</span></span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-f</span> src/Makevars src/vtk_libs.rsp</span></code></pre></div>
-<div class="sourceCode" id="cb11"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="co"># cleanup.win (Windows)</span></span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="co">#!/bin/sh</span></span>
-<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="ex">./cleanup</span></span></code></pre></div>
-<p>Make them executable:</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">chmod</span> +x cleanup cleanup.win</span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="step-5---function-import">Step 5 - Function import<a class="anchor" aria-label="anchor" href="#step-5---function-import"></a>
-</h3>
-<p>The <strong>rvtk</strong> package is meant to be used by downstream packages that link against VTK. It is most likely that its R functions will only be called from <code>configure</code> / <code>configure.win</code> scripts. <code>R CMD check</code> will complain because it means that you must list <strong>rvtk</strong> in the <code>Imports</code> field of your <code>DESCRIPTION</code> but do not actually import any of its functions in your R code. The solution is to import at least one of the functions in a dummy R script that is not used for anything else:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="section level4">
+<h4 id="toolsconfigurer">
+<code>tools/configure.R</code><a class="anchor" aria-label="anchor" href="#toolsconfigurer"></a>
+</h4>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">args</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/commandArgs.html" class="external-link">commandArgs</a></span><span class="op">(</span>trailingOnly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">flag</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">args</span><span class="op">)</span><span class="op">)</span> <span class="va">args</span><span class="op">[</span><span class="fl">1L</span><span class="op">]</span> <span class="kw">else</span> <span class="st">"--cppflags"</span></span>
+<span></span>
+<span><span class="va">vtk_modules</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>  <span class="st">"vtkIOLegacy"</span>,</span>
+<span>  <span class="st">"vtkIOXML"</span>,</span>
+<span>  <span class="st">"vtkIOXMLParser"</span>,</span>
+<span>  <span class="st">"vtkIOCore"</span>,</span>
+<span>  <span class="st">"vtkCommonCore"</span>,</span>
+<span>  <span class="st">"vtkCommonDataModel"</span>,</span>
+<span>  <span class="st">"vtkCommonExecutionModel"</span>,</span>
+<span>  <span class="st">"vtkCommonMath"</span>,</span>
+<span>  <span class="st">"vtkCommonMisc"</span>,</span>
+<span>  <span class="st">"vtkCommonSystem"</span>,</span>
+<span>  <span class="st">"vtkCommonTransforms"</span>,</span>
+<span>  <span class="st">"vtksys"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="kw">if</span> <span class="op">(</span><span class="va">flag</span> <span class="op">==</span> <span class="st">"--cppflags"</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu">rvtk</span><span class="fu">::</span><span class="fu"><a href="reference/CppFlags.html">CppFlags</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="op">}</span> <span class="kw">else</span> <span class="kw">if</span> <span class="op">(</span><span class="va">flag</span> <span class="op">==</span> <span class="st">"--libs"</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu">rvtk</span><span class="fu">::</span><span class="fu"><a href="reference/LdFlagsFile.html">LdFlagsFile</a></span><span class="op">(</span>path <span class="op">=</span> <span class="st">"vtk_libs.rsp"</span>, modules <span class="op">=</span> <span class="va">vtk_modules</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+<p>Adjust <code>vtk_modules</code> to the subset of VTK modules your package requires.</p>
+<p><code><a href="reference/LdFlagsFile.html">LdFlagsFile()</a></code> is preferred over <code><a href="reference/LdFlags.html">LdFlags()</a></code> for the linker flags because the full set of VTK <code>-l</code> flags can exceed the 8 191-character Windows command-line limit. <code>LdFlagsFile(path)</code> writes the flags to a response file and returns the short <code>@path</code> token that GNU ld and LLVM lld both support; on macOS and Linux the raw flags are returned directly.</p>
+<p>Add <code>src/vtk_libs.rsp</code> to <code>.gitignore</code> (it is generated at install time).</p>
+<p>Import at least one <strong>rvtk</strong> function in your R code to satisfy <code>R CMD check</code>:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># R/rvtk_imports.R</span></span>
 <span><span class="co">#' @importFrom rvtk CppFlags LdFlagsFile</span></span>
 <span><span class="cn">NULL</span></span></code></pre></div>
+</div>
 </div>
 </div>
 <div class="section level2">
 <h2 id="querying-the-detected-installation">Querying the detected installation<a class="anchor" aria-label="anchor" href="#querying-the-detected-installation"></a>
 </h2>
 <p>You can verify the detected installation at any time:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/astamm/rvtk" class="external-link">rvtk</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/CppFlags.html">CppFlags</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; -isystem/opt/homebrew/opt/vtk/include/vtk-9.5</span></span>
+<span><span class="co">#&gt; -isystem/Users/stamm-a/Downloads/vtk-compil/vtk-install-static/include/vtk-9.5</span></span>
 <span><span class="fu"><a href="reference/LdFlagsFile.html">LdFlagsFile</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".rsp"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; -L/opt/homebrew/opt/vtk/lib -lvtkIOLegacy-9.5 -lvtkIOXML-9.5 -lvtkIOXMLParser-9.5 -lvtkIOCore-9.5 -lvtkCommonCore-9.5 -lvtkCommonDataModel-9.5 -lvtkCommonExecutionModel-9.5 -lvtkCommonMath-9.5 -lvtkCommonMisc-9.5 -lvtkCommonSystem-9.5 -lvtkCommonTransforms-9.5 -lvtksys-9.5</span></span>
+<span><span class="co">#&gt; -L/Users/stamm-a/Downloads/vtk-compil/vtk-install-static/lib -lvtkIOLegacy-9.5 -lvtkIOXML-9.5 -lvtkIOXMLParser-9.5 -lvtkIOCore-9.5 -lvtkCommonCore-9.5 -lvtkCommonDataModel-9.5 -lvtkCommonExecutionModel-9.5 -lvtkCommonMath-9.5 -lvtkCommonMisc-9.5 -lvtkCommonSystem-9.5 -lvtkCommonTransforms-9.5 -lvtksys-9.5 -Wl,-rpath,/Users/stamm-a/Downloads/vtk-compil/vtk-install-static/lib</span></span>
 <span><span class="fu"><a href="reference/VtkVersion.html">VtkVersion</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "9.5.0"</span></span></code></pre></div>
 </div>
@@ -315,6 +420,8 @@
 <ul class="list-unstyled">
 <li><a href="https://github.com/astamm/rvtk/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/astamm/rvtk/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
 <li><a href="https://app.codecov.io/gh/astamm/rvtk" class="external-link"><img src="https://codecov.io/gh/astamm/rvtk/graph/badge.svg" alt="Codecov test coverage"></a></li>
+<li><a href="https://github.com/astamm/rvtk/actions/workflows/pkgdown.yaml" class="external-link"><img src="https://github.com/astamm/rvtk/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"></a></li>
+<li><a href="https://CRAN.R-project.org/package=rvtk" class="external-link"><img src="https://www.r-pkg.org/badges/version/rvtk" alt="CRAN status"></a></li>
 </ul>
 </div>
 

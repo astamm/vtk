@@ -9,7 +9,7 @@ keeping the command line short.
 ## Usage
 
 ``` r
-LdFlagsFile(path, os_type = .Platform$OS.type)
+LdFlagsFile(path, modules = NULL, os_type = .Platform$OS.type)
 ```
 
 ## Arguments
@@ -19,6 +19,15 @@ LdFlagsFile(path, os_type = .Platform$OS.type)
   Path (relative to the package source root, i.e. where `configure`
   runs) to the response file to write on Windows, e.g.
   `"src/vtk_libs.rsp"`. Ignored on non-Windows platforms.
+
+- modules:
+
+  A character vector of VTK module names to link against, e.g.
+  `c("vtkIOLegacy", "vtkCommonCore")`. When `NULL` (the default) all
+  available modules are included. When non-`NULL`, only the requested
+  modules are linked, which avoids pulling in unneeded symbols (such as
+  AppKit/Cocoa symbols from rendering modules when using the pre-built
+  static bundle).
 
 - os_type:
 

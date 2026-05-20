@@ -7,8 +7,19 @@ package's `configure` or `configure.win` script:
 ## Usage
 
 ``` r
-LdFlags()
+LdFlags(modules = NULL)
 ```
+
+## Arguments
+
+- modules:
+
+  A character vector of VTK module names to link against, e.g.
+  `c("vtkIOLegacy", "vtkCommonCore")`. When `NULL` (the default) all
+  available modules are included. When non-`NULL`, only the requested
+  modules are linked, which avoids pulling in unneeded symbols (such as
+  AppKit/Cocoa symbols from rendering modules when using the pre-built
+  static bundle).
 
 ## Value
 

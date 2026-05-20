@@ -11,12 +11,12 @@ Source:
 [`DESCRIPTION`](https://github.com/astamm/rvtk/blob/main/DESCRIPTION)
 
 Stamm A (2026). *rvtk: Bindings for the Visualization Toolkit ('VTK')*.
-R package version 0.1.3.9000, <https://github.com/astamm/rvtk>.
+R package version 0.1.4, <https://github.com/astamm/rvtk>.
 
     @Manual{,
       title = {rvtk: Bindings for the Visualization Toolkit ('VTK')},
       author = {Aymeric Stamm},
       year = {2026},
-      note = {R package version 0.1.3.9000},
+      note = {R package version 0.1.4},
       url = {https://github.com/astamm/rvtk},
     }

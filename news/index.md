@@ -1,6 +1,6 @@
 # Changelog
 
-## rvtk 0.1.4
+## rvtk 0.2.0
 
 #### New features
 
@@ -84,6 +84,8 @@
     modules = c('vtkIOLegacy', 'vtkCommonCore', ...)
   )")"
   ```
+
+#### Internal
 
 - New internal helper `filter_libs()` implements the module-name
   matching used by all three platform branches of `read_vtk_conf()`.

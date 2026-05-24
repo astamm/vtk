@@ -110,9 +110,18 @@ use_rvtk <- function(
     root = path
   )
 
-  cli::cli_alert_success(
-    "Package {.pkg {basename(path)}} is now configured to link against VTK via {.pkg rvtk}."
-  )
+  if (requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_success(
+      "Package {.pkg {basename(path)}} is now configured to link against VTK via {.pkg rvtk}."
+    )
+  } else {
+    message(
+      "Package '",
+      basename(path),
+      "' is now configured to link against VTK via 'rvtk'."
+    )
+  }
+
   invisible(path)
 }
 
@@ -122,7 +131,17 @@ use_rvtk <- function(
 rvtk_use_package <- function(root) {
   desc_path <- file.path(root, "DESCRIPTION")
   if (!file.exists(desc_path)) {
-    cli::cli_abort("No {.file DESCRIPTION} found in {.path {root}}.")
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_abort(
+        "No {.file DESCRIPTION} found in {.path {root}}. Are you sure this is the root of an R package?"
+      )
+    } else {
+      stop(
+        "No DESCRIPTION found in ",
+        root,
+        ". Are you sure this is the root of an R package?"
+      )
+    }
   }
 
   lines <- readLines(desc_path, warn = FALSE)
@@ -149,9 +168,13 @@ rvtk_use_package <- function(root) {
     }
     lines <- append(lines, "Imports: rvtk", after = insert_before - 1L)
     writeLines(lines, desc_path)
-    cli::cli_alert_success(
-      "Added {.pkg rvtk} to {.field Imports} in {.file DESCRIPTION}."
-    )
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_success(
+        "Added {.pkg rvtk} to {.field Imports} in {.file DESCRIPTION}."
+      )
+    } else {
+      message("Added 'rvtk' to Imports in DESCRIPTION.")
+    }
     return(invisible(NULL))
   }
 
@@ -166,9 +189,13 @@ rvtk_use_package <- function(root) {
 
   imports_block <- paste(lines[i:span_end], collapse = "\n")
   if (grepl("\\brvtk\\b", imports_block)) {
-    cli::cli_alert_info(
-      "{.pkg rvtk} is already in {.field Imports} - skipping."
-    )
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_info(
+        "{.pkg rvtk} is already in {.field Imports} - skipping."
+      )
+    } else {
+      message("rvtk is already in Imports - skipping.")
+    }
     return(invisible(NULL))
   }
 
@@ -177,9 +204,13 @@ rvtk_use_package <- function(root) {
   lines[span_end] <- paste0(trimws(lines[span_end], which = "right"), ",")
   lines <- append(lines, "    rvtk", after = span_end)
   writeLines(lines, desc_path)
-  cli::cli_alert_success(
-    "Added {.pkg rvtk} to {.field Imports} in {.file DESCRIPTION}."
-  )
+  if (requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_success(
+      "Added {.pkg rvtk} to {.field Imports} in {.file DESCRIPTION}."
+    )
+  } else {
+    message("Added 'rvtk' to Imports in DESCRIPTION.")
+  }
 }
 
 ## Write a file, creating parent directories if needed.
@@ -195,20 +226,39 @@ rvtk_write_file <- function(path, content, root = getwd()) {
   if (file.exists(path)) {
     if (interactive()) {
       answer <- readline(
-        cli::col_yellow(sprintf("'%s' already exists. Overwrite? [y/N] ", rel))
+        if (requireNamespace("cli", quietly = TRUE)) {
+          cli::col_yellow(sprintf(
+            "'%s' already exists. Overwrite? [y/N] ",
+            rel
+          ))
+        } else {
+          sprintf("'%s' already exists. Overwrite? [y/N] ", rel)
+        }
       )
       if (!tolower(trimws(answer)) %in% c("y", "yes")) {
-        cli::cli_alert_warning("Skipping {.file {rel}} - not overwritten.")
+        if (requireNamespace("cli", quietly = TRUE)) {
+          cli::cli_alert_warning("Skipping {.file {rel}} - not overwritten.")
+        } else {
+          message("Skipping ", rel, " - not overwritten.")
+        }
         return(invisible(path))
       }
     } else {
-      cli::cli_alert_warning("Skipping {.file {rel}} - already exists.")
+      if (requireNamespace("cli", quietly = TRUE)) {
+        cli::cli_alert_warning("Skipping {.file {rel}} - already exists.")
+      } else {
+        message("Skipping ", rel, " - already exists.")
+      }
       return(invisible(path))
     }
   }
 
   writeLines(content, con = path)
-  cli::cli_alert_success("Writing {.file {rel}}.")
+  if (requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_success("Writing {.file {rel}}.")
+  } else {
+    message("Writing ", rel, ".")
+  }
   invisible(path)
 }
 
@@ -222,14 +272,22 @@ rvtk_use_git_ignore <- function(pattern, root = getwd()) {
   }
 
   if (pattern %in% trimws(existing)) {
-    cli::cli_alert_info(
-      "{.val {pattern}} already in {.file .gitignore} - skipping."
-    )
+    if (requireNamespace("cli", quietly = TRUE)) {
+      cli::cli_alert_info(
+        "{.val {pattern}} already in {.file .gitignore} - skipping."
+      )
+    } else {
+      message("'", pattern, "' already in .gitignore - skipping.")
+    }
     return(invisible(NULL))
   }
 
   cat(pattern, "\n", file = gi_path, append = TRUE, sep = "")
-  cli::cli_alert_success("Adding {.val {pattern}} to {.file .gitignore}.")
+  if (requireNamespace("cli", quietly = TRUE)) {
+    cli::cli_alert_success("Adding {.val {pattern}} to {.file .gitignore}.")
+  } else {
+    message("Adding '", pattern, "' to .gitignore.")
+  }
 }
 
 ## Return path relative to root, or the original path if outside root.

@@ -1,3 +1,11 @@
+## Resubmission
+
+In this resubmission, we fixed URL issue pointing to https://github.com/astamm/riot
+instead of https://github.com/tractoverse/riot.
+
+The rest of CRAN check issues (linux-arm64 and musl/Alpine) have been addressed as
+part of the original v0.2.0 submission.
+
 ## Submission (v0.2.0)
 
 This submission adds aarch64 and musl/Alpine Linux support as well as a

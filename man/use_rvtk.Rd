@@ -17,7 +17,7 @@ These are passed to \code{\link[=LdFlagsFile]{LdFlagsFile()}} in the generated \
 restricting linking to only the modules the downstream package needs.
 Defaults to a standard set covering common I/O and core modules
 (the same set used by the reference implementation in
-\url{https://github.com/astamm/riot}).}
+\url{https://github.com/tractoverse/riot}).}
 
 \item{path}{Path to the root of the downstream package. Defaults to the
 current working directory.}

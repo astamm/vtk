@@ -51,7 +51,7 @@ use_rvtk(
   in the generated `tools/configure.R`, restricting linking to only the
   modules the downstream package needs. Defaults to a standard set
   covering common I/O and core modules (the same set used by the
-  reference implementation in <https://github.com/astamm/riot>).
+  reference implementation in <https://github.com/tractoverse/riot>).
 
 - path:
 
